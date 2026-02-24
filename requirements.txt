@@ -1,0 +1,32 @@
+# [cite_start]Audio & Video Processing [cite: 1]
+[cite_start]edge-tts              # Used in voice.py for text-to-speech [cite: 1]
+[cite_start]moviepy>=2.0.0        # Used in assembler.py for video editing (Updated for v2.0+ compatibility) [cite: 1]
+[cite_start]mutagen               # Used in voice.py for MP3 metadata/duration [cite: 1]
+[cite_start]openai-whisper        # Used in assembler.py for transcription (Import is 'whisper') [cite: 1]
+
+# [cite_start]Computer Vision & Image Processing [cite: 1]
+[cite_start]opencv-python         # Used in verifier.py (Import is 'cv2') [cite: 1, 2]
+[cite_start]Pillow                # Used in visuals.py & assembler.py for frame-by-frame text drawing [cite: 2]
+[cite_start]scikit-image          # Used in verifier.py (Import is 'skimage') [cite: 2]
+[cite_start]numpy                 # Used in verifier.py and assembler.py for matrix operations [cite: 2]
+
+# AI & LLM Integration
+[cite_start]groq                  # Used in brain.py and scraper.py for LLM calls [cite: 2, 3]
+
+# Database & Environment
+[cite_start]pymongo               # Used in db_manager.py for MongoDB connection [cite: 3]
+[cite_start]python-dotenv         # Used in db_manager.py and visuals.py for .env loading [cite: 3]
+[cite_start]certifi               # Used in db_manager.py for secure MongoDB SSL connections [cite: 3]
+
+# [cite_start]Web Scraping & Networking [cite: 3]
+beautifulsoup4        # NEW: Used in scraper.py for extracting full HTML article text
+[cite_start]feedparser            # Used in scraper.py for RSS feeds [cite: 3, 4]
+[cite_start]requests              # Used in scraper.py and visuals.py [cite: 4]
+
+# Automation & Scheduling
+[cite_start]schedule              # Used in scheduler.py to trigger daily jobs [cite: 4]
+
+# [cite_start]YouTube API & Google Auth [cite: 4]
+[cite_start]google-api-python-client  # Used in uploader.py [cite: 4]
+[cite_start]google-auth-oauthlib      # Used in uploader.py [cite: 4]
+[cite_start]google-auth               # Used in uploader.py [cite: 4]

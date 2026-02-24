@@ -1,0 +1,5 @@
+1. use image functionality when the videos are hard to find [brutal, public execution victims]. Make AI think hard to analyze the situation and provide a mix of image and video for these type of topic only. 
+
+2. get a real server
+
+3. Plan the database 
