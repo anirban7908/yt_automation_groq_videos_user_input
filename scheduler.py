@@ -29,10 +29,10 @@ def job(slot):
 # schedule.every().day.at("08:30").do(job, slot="evening")  # Nature
 # schedule.every().day.at("10:30").do(job, slot="night")  # History
 
-schedule.every().day.at("00:15").do(job, slot="mid_night")
+schedule.every().day.at("00:00").do(job, slot="mid_night")
 schedule.every().day.at("04:00").do(job, slot="4_am")
 schedule.every().day.at("08:00").do(job, slot="8_am")
-schedule.every().day.at("12:26").do(job, slot="mid_day")
+schedule.every().day.at("12:00").do(job, slot="mid_day")
 schedule.every().day.at("16:00").do(job, slot="4_pm")
 schedule.every().day.at("20:00").do(job, slot="8_pm")
 

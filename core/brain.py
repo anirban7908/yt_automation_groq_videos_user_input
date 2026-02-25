@@ -109,9 +109,11 @@ class ScriptGenerator:
             4. **SCENE STRUCTURE**: Break the story into 4-6 distinct SCENES. Each scene must be 7 to 8 seconds of spoken 'text'.
             
             5. **VISUALS & B-ROLL (THE "DUMB SEARCH" & ANCHOR RULES)**:
-                - Stock video sites (like Pexels) are literal and DO NOT understand abstract concepts, sci-fi, or complex theories. You MUST translate concepts into BASIC, PHYSICAL, CINEMATIC nouns.
-                    - BAD: "Fermi paradox dark forest"
-                    - GOOD: "Dark creepy forest at night", "Cinematic glowing galaxy"
+                - Stock video sites (like Pexels) are extremely literal. They DO NOT understand abstract concepts, double meanings, data, or sci-fi.
+                - **THE DOUBLE-MEANING & DATA TRAP**: NEVER use words that have human equivalents (e.g., "spots/spotless" will pull cleaning/skincare videos). NEVER search for "graphs", "charts", or "news updates" (it will pull office supplies and newspapers).
+                - You MUST translate concepts into BASIC, PHYSICAL, CINEMATIC scenery.
+                    - BAD: "Sunspot activity graph", "Spotless sun surface", "Economy chart", "Fermi paradox"
+                    - GOOD: "Cinematic glowing sun in space", "Telescope pointing at night sky", "Wall street building", "Dark creepy forest"
                 - **THE ANCHOR**: The core subject of this video is "{core_subject}". Every single visual search keyword MUST explicitly include this subject or tie directly to it physically to avoid random off-topic videos.
                 - Pace visuals based on scene length:
                     - SHORT scene (under 10 words): EXACTLY 1 search phrase ('image_count': 1).
