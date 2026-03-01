@@ -25,18 +25,16 @@ class VisualScout:
         except:
             return False
 
-    # 🟢 NEW: Fetch Actual B-Roll Video from Pexels with Aesthetic Modifier
+    # 🟢 THE FIX: Removed the "aesthetic" modifier so Pexels can actually find videos
     def use_pexels_video_search(self, query, path):
         if not self.pexels_key:
             return False
 
         print(f"      🎥 Pexels Video Search: hunting for '{query}'...")
         try:
-            # We append 'aesthetic' to force higher-quality, cinematic results
-            safe_query = f"{query} aesthetic"
-            url = f"https://api.pexels.com/videos/search?query={safe_query}&per_page=5&orientation=portrait"
+            url = f"https://api.pexels.com/videos/search?query={query}&per_page=5&orientation=portrait"
             res = requests.get(
-                url, headers={"Authorization": self.pexels_key}, timeout=10
+                url, headers={"Authorization": self.pexels_key}, timeout=30
             )
 
             if res.status_code == 200 and res.json().get("videos"):
@@ -65,6 +63,7 @@ class VisualScout:
 
         return False
 
+    # 🟢 THE FIX: Added success logs so you know when it falls back to a static image
     def use_stock_search(self, query, path):
         # 1. Unsplash (Fallback for images)
         if self.unsplash_key:
@@ -77,6 +76,7 @@ class VisualScout:
                     if self.is_valid_image(content):
                         with open(path, "wb") as f:
                             f.write(content)
+                        print("      ✅ Unsplash Image Secured.")
                         return True
             except:
                 pass
@@ -94,6 +94,7 @@ class VisualScout:
                     if self.is_valid_image(content):
                         with open(path, "wb") as f:
                             f.write(content)
+                        print("      ✅ Pexels Image Secured.")
                         return True
             except:
                 pass
@@ -152,7 +153,8 @@ class VisualScout:
                 kw = keywords[j % len(keywords)]
                 base_filename = f"scene_{i}_visual_{j}"
                 print(f"   🖼️ Scene {i+1} (Visual {j+1}/{count}): Search '{kw}'")
-
+                # Pause for 2 seconds to prevent Pexels API from rate-limiting you
+                time.sleep(2)
                 saved_path = None
 
                 # 1. Hero Image Force Web Search (Scene 0, Image 0)

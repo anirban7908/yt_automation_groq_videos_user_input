@@ -2,7 +2,7 @@
 edge-tts                  # Used in voice.py for text-to-speech
 moviepy>=2.0.0            # Used in assembler.py for video editing
 mutagen                   # Used in voice.py for MP3 metadata/duration
-openai-whisper            # Used in assembler.py for transcription (Import is 'whisper')
+openai-whisper            # Used in assembler.py for transcription
 
 # Computer Vision & Image Processing
 Pillow                    # Used in visuals.py & assembler.py for frame-by-frame text drawing
@@ -20,6 +20,7 @@ certifi                   # Used in db_manager.py for secure MongoDB SSL connect
 beautifulsoup4            # Used in scraper.py for extracting full HTML article text
 feedparser                # Used in scraper.py for RSS feeds
 requests                  # Used in scraper.py and visuals.py
+cloudscraper              # Used in scraper.py to bypass Cloudflare/403 bot protection
 
 # Automation & Scheduling
 schedule                  # Used in scheduler.py to trigger daily jobs

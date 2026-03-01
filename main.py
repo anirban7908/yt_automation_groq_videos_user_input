@@ -97,6 +97,7 @@ def run_creation_pipeline(slot_name, is_manual=False):
     prep = UploadManager()
     prep.prepare_package()
 
+    # exit("Video created!")
     # 7. UPLOAD TO YOUTUBE
     print("---------------------------------------")
     uploader = YouTubeUploader()

@@ -19,19 +19,7 @@ class NewsScraper:
         self.model = "llama-3.3-70b-versatile"
 
         self.MASTER_NICHES = {
-            "comics": {
-                "rss_feeds": [
-                    "https://www.cbr.com/feed/",
-                    "https://comicbook.com/feed/",
-                    "https://bleedingcool.com/feed/",
-                    "https://www.superherohype.com/feed",
-                    "http://feeds.ign.com/ign/comics-articles",
-                    "https://www.darkhorizons.com/feed/",
-                ],
-                "hashtags": "#Marvel #DCComics #MCU #DCU #ComicBooks #Superhero #EasterEggs #Geek",
-                "voice": "en-US-EricNeural",
-            },
-            "space": {
+           "space": {
                 "rss_feeds": [
                     "https://www.space.com/feeds/all",
                     "https://universetoday.com/feed",
@@ -41,7 +29,8 @@ class NewsScraper:
                     "https://www.esa.int/rssfeed/Our_Activities/Space_News",
                 ],
                 "hashtags": "#Space #Astronomy #Universe #BlackHole #NASA #Cosmos #Astrophysics",
-                "voice": "en-GB-RyanNeural",
+                "en_voice": "en-GB-RyanNeural",
+                "hi_voice": "hi-IN-SwaraNeural",
             },
             "mysteries": {
                 "rss_feeds": [
@@ -52,7 +41,8 @@ class NewsScraper:
                     "https://anomalien.com/feed/",
                 ],
                 "hashtags": "#Mystery #Unsolved #Paranormal #Cryptid #Conspiracy #Creepy",
-                "voice": "en-US-ChristopherNeural",
+                "en_voice": "en-US-ChristopherNeural",
+                "hi_voice": "hi-IN-MadhurNeural",
             },
             "tech_ai": {
                 "rss_feeds": [
@@ -63,7 +53,8 @@ class NewsScraper:
                     "https://www.wired.com/feed/tag/ai/latest/rss",
                 ],
                 "hashtags": "#AI #ArtificialIntelligence #Cyberpunk #TechNews #FutureTech #Robotics",
-                "voice": "en-US-GuyNeural",
+                "en_voice": "en-US-GuyNeural",
+                "hi_voice": "hi-IN-SwaraNeural",
             },
             "psychology": {
                 "rss_feeds": [
@@ -74,7 +65,8 @@ class NewsScraper:
                     "https://digest.bps.org.uk/feed/",
                 ],
                 "hashtags": "#Psychology #BodyLanguage #DarkPsychology #MindTricks #Manipulation #MentalHealth",
-                "voice": "en-US-BrianNeural",
+                "en_voice": "en-US-BrianNeural",
+                "hi_voice": "hi-IN-MadhurNeural",
             },
             "geography": {
                 "rss_feeds": [
@@ -85,7 +77,8 @@ class NewsScraper:
                     "https://geoawesomeness.com/feed/",
                 ],
                 "hashtags": "#Geography #HiddenPlaces #AtlasObscura #Forbidden #TravelFacts",
-                "voice": "en-AU-WilliamNeural",
+                "en_voice": "en-AU-WilliamNeural",
+                "hi_voice": "hi-IN-SwaraNeural",
             },
             "worldnews": {
                 "rss_feeds": [
@@ -96,7 +89,32 @@ class NewsScraper:
                     "https://yahoo.com/news/rss/world",
                 ],
                 "hashtags": "#WorldNews #GlobalNews #BreakingNews #CurrentEvents #Geopolitics #NewsUpdate",
-                "voice": "en-US-SteffanNeural",
+                "en_voice": "en-US-SteffanNeural",
+                "hi_voice": "hi-IN-MadhurNeural",
+            },
+            "home_decor": {
+                "rss_feeds": [
+                    "https://www.apartmenttherapy.com/feed",
+                    "https://design-milk.com/feed/",
+                    "https://www.dezeen.com/interiors/feed/",
+                    "https://ikeahackers.net/feed",
+                    "https://www.housebeautiful.com/rss/all.xml",
+                ],
+                "hashtags": "#HomeDecor #InteriorDesign #Renovation #DIYHome #HouseMakeover #DesignInspo",
+                "en_voice": "en-US-JennyNeural",
+                "hi_voice": "hi-IN-SwaraNeural",
+            },
+            "indian_history": {
+                "rss_feeds": [
+                    "https://indianexpress.com/section/research/feed/",
+                    "https://www.thehindu.com/society/history/feeder/default.rss",
+                    "https://theprint.in/past-forward/feed/",
+                    "https://www.livehistoryindia.com/feed/",
+                    "https://www.smithsonianmag.com/rss/history/",
+                ],
+                "hashtags": "#IndianHistory #AncientIndia #HistoryFacts #HistoryOfIndia #Historical #Bharat",
+                "en_voice": "en-IN-PrabhatNeural",
+                "hi_voice": "hi-IN-MadhurNeural",
             },
         }
 
@@ -173,13 +191,18 @@ class NewsScraper:
             return random.sample(candidates, min(3, len(candidates)))
 
     def extract_full_article(self, url):
-        """Visits the webpage and extracts all paragraph text."""
+        """Visits the webpage and extracts all paragraph text bypassing anti-bot walls."""
         print(f"      📖 Deep Reading full article from: {url}")
         try:
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            }
-            res = requests.get(url, headers=headers, timeout=10)
+            import cloudscraper
+
+            # Create a scraper that perfectly mimics a standard Windows Desktop Chrome user
+            scraper = cloudscraper.create_scraper(
+                browser={"browser": "chrome", "platform": "windows", "desktop": True}
+            )
+
+            # Use the new scraper instead of standard 'requests'
+            res = scraper.get(url, timeout=15)
             soup = BeautifulSoup(res.text, "html.parser")
 
             paragraphs = soup.find_all("p")
@@ -189,6 +212,7 @@ class NewsScraper:
                 return None
 
             return full_text[:5000]
+
         except Exception as e:
             print(f"      ❌ Failed to read full article: {e}")
             return None
@@ -252,6 +276,13 @@ class NewsScraper:
                     clean_summary = re.sub(r"<[^>]+>", "", raw_summary)
                     full_content = clean_summary[:5000]
 
+                if slot in ["mid_night", "4_am", "8_am"]:
+                    target_lang = "English"
+                    selected_voice = niche_data.get("en_voice", "en-US-GuyNeural")
+                else:
+                    target_lang = "Hindi"
+                    selected_voice = niche_data.get("hi_voice", "hi-IN-MadhurNeural")
+
                 self.db.add_task(
                     title=final_winner["title"],
                     content=full_content,
@@ -262,7 +293,8 @@ class NewsScraper:
                         "niche_slot": slot,
                         "source_url": final_winner["link"],
                         "hashtags": niche_data.get("hashtags", "#Shorts #Viral"),
-                        "voice": niche_data.get("voice", "en-US-GuyNeural"),
+                        "voice": selected_voice,  # 🟢 Dynamically selected voice
+                        "target_language": target_lang,  # 🟢 Pass the language to the DB
                     },
                 )
                 return

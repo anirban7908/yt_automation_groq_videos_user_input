@@ -15,8 +15,6 @@ import shutil
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-FONT_PATH = r"C:\Windows\Fonts\arial.ttf"
-
 # Dynamically find the absolute path to your project root
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -188,16 +186,34 @@ class VideoAssembler:
 
         return base_path, full_audio_path
 
-    def _draw_text_on_video(self, base_path, full_audio_path, out_path, video_title):
+    def _draw_text_on_video(
+        self, base_path, full_audio_path, out_path, video_title, target_lang
+    ):
         """
         PHASE 2: Frame-by-frame Text Burn-in.
         Bypasses MoviePy's CompositeVideoClip memory leak entirely.
         """
+        # 🟢 THE HINDI OVERRIDE: Skip all text generation to save rendering time
+        import shutil
+
+        if target_lang.strip().lower() == "hindi":
+            print(
+                "🚫 Hindi language detected. Skipping Whisper and on-screen captions."
+            )
+            shutil.copy(base_path, out_path)
+            return
+
+        # 🟢 CRITICAL FIX: Load the model into memory for English videos
         self._load_whisper()
-        print("📝 Transcribing audio for captions...")
+
+        print(f"📝 Processing audio for English captions...")
+
+        # Standard English transcription
         result = self.model.transcribe(
             full_audio_path, word_timestamps=True, fp16=False
         )
+
+        # 🟢 Free up RAM immediately after transcribing
         self._unload_whisper()
 
         words = []
@@ -214,6 +230,9 @@ class VideoAssembler:
         for i in range(len(words)):
             if i < len(words) - 1:
                 words[i]["end"] = min(words[i]["end"], words[i + 1]["start"])
+
+        # 🟢 Safely defaulting to Arial for pure English text
+        FONT_PATH = r"C:\Windows\Fonts\arial.ttf"
 
         # Load fonts for PIL
         try:
@@ -278,6 +297,8 @@ class VideoAssembler:
             return np.array(img)
 
         print("🎨 Burning text directly into video frames...")
+        from moviepy import VideoFileClip
+
         base_video = VideoFileClip(base_path)
 
         # Apply the custom frame transformation
@@ -302,6 +323,8 @@ class VideoAssembler:
             base_video.close()
         except:
             pass
+        import gc
+
         gc.collect()
 
     def assemble(self):
@@ -311,6 +334,7 @@ class VideoAssembler:
 
         scenes = task.get("script_data", [])
         folder = os.path.normpath(os.path.join(PROJECT_ROOT, task["folder_path"]))
+        target_lang = task.get("target_language", "English")
         video_title = task.get("title", "Breaking News").upper()
         os.makedirs(folder, exist_ok=True)
 
@@ -324,7 +348,9 @@ class VideoAssembler:
         time.sleep(1)
 
         # Execute the Frame-by-Frame text burn-in
-        self._draw_text_on_video(base_path, full_audio_path, out_path, video_title)
+        self._draw_text_on_video(
+            base_path, full_audio_path, out_path, video_title, target_lang
+        )
 
         for temp in [base_path, full_audio_path]:
             if os.path.exists(temp):

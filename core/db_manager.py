@@ -118,6 +118,7 @@ class DBManager:
             "folder_path": folder_path,
             # 🟢 NEW: Save the specific voice for this video
             "voice_model": extra_data.get("voice", "en-US-GuyNeural"),
+            "target_language": extra_data.get("target_language", "English"),
             "hashtags": extra_data.get("hashtags", "#Shorts #Viral"),
             "created_at": datetime.now(timezone.utc),
         }

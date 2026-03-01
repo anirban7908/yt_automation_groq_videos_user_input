@@ -23,6 +23,8 @@ class ScriptGenerator:
             "psychology": "insightful psychology and human behavior expert",
             "geography": "engaging geography and world-culture explorer",
             "worldnews": "professional and objective global news anchor",
+            "home_decor": "creative interior designer and DIY renovation expert",
+            "indian_history": "knowledgeable historian and captivating storyteller of India's past",
         }
         return role_map.get(niche, "highly informative educator")
 
@@ -34,6 +36,138 @@ class ScriptGenerator:
         except:
             return None
 
+    def validate_script(self, data):
+        if not data or "scenes" not in data:
+            return False, "Missing scenes key"
+
+        scenes = data["scenes"]
+        if not (4 <= len(scenes) <= 6):
+            return False, f"Wrong scene count: {len(scenes)}"
+
+        for i, scene in enumerate(scenes):
+            if not scene.get("text"):
+                return False, f"Scene {i} missing text"
+            if not scene.get("keywords") or not isinstance(scene["keywords"], list):
+                return False, f"Scene {i} missing keywords"
+            if scene.get("image_count", 0) not in [1, 2, 3]:
+                return (
+                    False,
+                    f"Scene {i} has invalid image_count: {scene.get('image_count')}",
+                )
+            if len(scene["keywords"]) != scene["image_count"]:
+                return (
+                    False,
+                    f"Scene {i}: keywords count ({len(scene['keywords'])}) doesn't match image_count ({scene.get('image_count')})",
+                )
+
+        return True, "OK"
+
+    def generate_narration(self, sys_prompt, expert_role, source, target_lang, niche):
+        print(f"✍️ Narration Writer: Crafting {target_lang.upper()} script...")
+
+        prompt = f"""
+            ROLE: {sys_prompt}
+            TASK: You are a {expert_role} and a master of YouTube Shorts retention. Read the source material and write a highly informative, engaging, high-tension voiceover script. Explain complex topics in simple terms. Keep total length between 60-75 seconds of spoken narration.
+            SOURCE: "{source}"
+
+            RULES:
+            1. HOOK: Scene 1 MUST open with a pattern-interrupt like "Stop scrolling...", "What if I told you...", or a bold shocking claim. No generic questions.
+            2. TONE: Write the way people actually speak. Short punchy sentences. Use (..., —, !, ?) for voiceover rhythm and suspense. You may use words like "terrifying", "bizarre", "breakthrough" but NEVER invent or exaggerate facts.
+            3. FACTS ONLY: No personal stories, no "I" statements, no motivational fluff. Facts, science, history, news only.
+            4. LANGUAGE: Write entirely in {target_lang.upper()}. Use simple conversational language, NOT formal or academic. Keep English tech/business words (AI, Startup, Robot, etc.) as-is mixed naturally into sentences.
+            5. STRUCTURE: Write exactly 4-6 scenes. Each scene = 7-8 seconds of spoken narration.
+            6. FINAL SCENE: Must end with the exact phrase: "Please like, share, and subscribe!"
+
+            OUTPUT FORMAT — plain numbered list, nothing else:
+            Scene 1: [narration text]
+            Scene 2: [narration text]
+            Scene 3: [narration text]
+            Scene 4: [narration text]
+            Scene 5: [narration text]
+            Scene 6: [narration text]
+            """
+
+        try:
+            chat_completion = self.client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": f"You are {sys_prompt}. Write ONLY the numbered scene list. No JSON, no extra commentary.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                model=self.model,
+            )
+            return chat_completion.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"❌ Narration Error: {e}")
+            return None
+
+    def generate_packaging(
+        self, narration_text, core_subject, niche, target_lang, pre_hashtags
+    ):
+        print(f"📦 Packaging Agent: Generating keywords and metadata...")
+
+        prompt = f"""
+            TASK: You are a stock footage coordinator and SEO expert. Given the finished script scenes below, output a JSON object with visual keywords and metadata.
+
+            FINISHED SCRIPT:
+            {narration_text}
+
+            KEYWORD RULES:
+            - Every keyword must be 1-3 plain English nouns that describe a PHYSICAL, FILMABLE object or place.
+            - Core subject anchor: "{core_subject}". At least one keyword per scene must physically relate to this.
+            - Niche: "{niche}". If niche needs illustrated style (like "comics"), prefix keywords with "comic" or "animated".
+            - NEVER use: "graphs", "charts", "news", "newspaper", "county", "area", "place", "energy" (too abstract).
+            - STRICT NO DUPLICATE RULE: Scan ALL keywords across ALL scenes before finalizing. If a phrase appears more than once, replace the duplicate with a visually distinct alternative. "Oil Field" can appear ONCE maximum across the entire script.
+            - VISUAL SPECIFICITY RULE: Each keyword must be specific enough that a photographer would know exactly what to film. BAD: "Energy", "Equipment", "Area". GOOD: "Oil Derrick", "Steel Pipeline", "Gas Pump".
+            - LOCATION RULE: If the story is about a specific country or region, at least 2 keywords across the script must reflect the location visually (e.g., "Taiwan street", "Asian village", "East Asia city").
+            - SCENE VARIETY RULE: Consecutive scenes must NOT share similar keywords. Alternate between close-up subjects and wide environment shots.
+            - image_count rule: count the words in each scene's narration text.
+                - Under 10 words = image_count: 1, exactly 1 keyword
+                - 10-18 words = image_count: 2, exactly 2 keywords
+                - 18+ words = image_count: 3, exactly 3 keywords
+            - keywords array length MUST equal image_count exactly.
+
+            METADATA RULES (all fields strictly in ENGLISH):
+            - title: clickbait style, max 50 characters, high curiosity
+            - description: 3 sentences summarizing the video + call to action
+            - hashtags: use these exactly: {pre_hashtags}, then add 5 more specific ones
+            - tags: array of 10-15 highly searched SEO keywords
+
+            OUTPUT ONLY valid JSON:
+            {{
+                "title": "...",
+                "description": "...",
+                "hashtags": "...",
+                "tags": ["...", "..."],
+                "scenes": [
+                    {{
+                        "text": "exact scene narration copied here",
+                        "keywords": ["English noun", "English noun"],
+                        "image_count": 2
+                    }}
+                ]
+            }}
+            """
+
+        try:
+            chat_completion = self.client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You output ONLY valid JSON dictionaries. Copy scene text exactly as given.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                model=self.model,
+                response_format={"type": "json_object"},
+            )
+            return self.repair_json(chat_completion.choices[0].message.content)
+        except Exception as e:
+            print(f"❌ Packaging Error: {e}")
+            return None
+
     def generate_meta_prompt(self, niche, source_text, expert_role):
         print(f"🕵️‍♂️ AI Strategist: Analyzing '{niche}' news to build custom persona...")
 
@@ -42,7 +176,7 @@ class ScriptGenerator:
             I am going to give you a raw news story about {niche}.
             You need to invent a highly specific, engaging Persona/Role for the scriptwriter, and identify the core subject of the video.
             
-            NEWS STORY: "{source_text[:1500]}"
+            NEWS STORY: "{source_text}"
             
             REQUIREMENTS:
             1. 'system_prompt': Write a 3-sentence persona. You MUST adopt the tone of a {expert_role}. Ignore any personal anecdotes or fluff in the news.
@@ -83,90 +217,34 @@ class ScriptGenerator:
 
         sys_prompt = meta_data.get("system_prompt", f"You are a {expert_role}.")
         core_subject = meta_data.get("core_subject", niche)
-        pre_hashtags = task.get("predefined_hashtags", "#Shorts #Viral")
-
-        # 🟢 FIX: Numbering correctly ordered and Anchor Rule properly integrated
-        prompt = f"""
-            ROLE: {sys_prompt}
-            TASK: You are a {expert_role} and a master of YouTube Shorts retention. Read the provided source material and write a highly informative, engaging, high-tension script. You MUST explain complex topics or news in simple terms so a general audience can learn something new. If the news is boring, make it sound interesting and crispy. Keep the script between 60 seconds minimum and 75 seconds maximum.
-            SOURCE: "{source}"
-            
-            REQUIREMENTS:
-            1. **THE HOOK (CRITICAL)**: The first sentence MUST be a pattern-interrupt. Start with a phrase like "What if I told you..." or make a bold, shocking, or mysterious claim to immediately stop the viewer from scrolling. Do NOT ask generic theoretical questions.
-            
-            2. **TONE, STORYTELLING & PACING (CRITICAL FOR VOICEOVER)**: 
-                - Follow your assigned ROLE strictly. Write the way people actually speak.
-                - Do not sound like Wikipedia. Use short, punchy sentences.
-                - **OPTIMIZED RULE**: Transform dry or boring news into a highly captivating, fast-paced narrative. Use creative phrasing and analogies to explain facts, but NEVER invent or exaggerate the underlying data.
-                - Build tension using words like "terrifying," "bizarre," "hidden," or "breakthrough."
-                - You MUST use heavy punctuation (..., —, ?, !) to force the AI voice engine to pause, breathe, build suspense, and sound human.
-            
-            3. **STRICTLY FACTUAL (NO FLUFF)**: This is an educational/news channel. 
-                - DO NOT include personal stories, "I" statements, or motivational fluff from the source. 
-                - Extract ONLY hard facts, history, science, or news updates. If the article is an interview, ignore the person and explain the subject matter objectively.
-                
-
-            4. **SCENE STRUCTURE**: Break the story into 4-6 distinct SCENES. Each scene must be 7 to 8 seconds of spoken 'text'.
-            
-            5. **VISUALS & B-ROLL (THE "DUMB SEARCH" & ANCHOR RULES)**:
-                - Stock video sites (like Pexels) are extremely literal. They DO NOT understand abstract concepts, double meanings, data, or sci-fi.
-                - **THE DOUBLE-MEANING & DATA TRAP**: NEVER use words that have human equivalents (e.g., "spots/spotless" will pull cleaning/skincare videos). NEVER search for "graphs", "charts", or "news updates" (it will pull office supplies and newspapers).
-                - You MUST translate concepts into BASIC, PHYSICAL, CINEMATIC scenery.
-                    - BAD: "Sunspot activity graph", "Spotless sun surface", "Economy chart", "Fermi paradox"
-                    - GOOD: "Cinematic glowing sun in space", "Telescope pointing at night sky", "Wall street building", "Dark creepy forest"
-                - **THE ANCHOR**: The core subject of this video is "{core_subject}". Every single visual search keyword MUST explicitly include this subject or tie directly to it physically to avoid random off-topic videos.
-                - Pace visuals based on scene length:
-                    - SHORT scene (under 10 words): EXACTLY 1 search phrase ('image_count': 1).
-                    - MODERATE scene (10-18 words): EXACTLY 2 search phrases ('image_count': 2).
-                    - LONG scene (18+ words): EXACTLY 3 search phrases ('image_count': 3).
-                - **NO DUPLICATES**: NEVER repeat a search phrase. Every phrase must be 100% unique.
-            
-            6. **METADATA & SEO**:
-                - 'title': MUST be "Clickbait" style. High curiosity. Max 50 chars.
-                - 'description': 3-sentence summary + call to action.
-                - 'hashtags': Use these exactly: {pre_hashtags}, and add 5 more specific ones.
-                - 'tags': An array of 10-15 highly searched SEO keywords.
-            
-            7. **CTA & OUTRO**: 
-                - The FINAL SCENE must drive an explicit call to action ending with the exact phrase: "Please like, share, and subscribe!"
-                - **CRITICAL**: You MUST still output the 'keywords' array and 'image_count' for this final scene. Apply the "Dumb Search Rule" tied to the "{core_subject}" anchor, completely ignoring the word "subscribe" to prevent makeup vlogger videos. Do not loop the script; end naturally.
-            
-            OUTPUT FORMAT (JSON ONLY):
-            {{
-                "title": "Viral Title Here",
-                "description": "Short summary...",
-                "hashtags": "#Tag1 #Tag2...",
-                "tags": ["keyword1", "keyword2", "keyword3"],
-                "scenes": [
-                    {{
-                        "text": "Your narration here...",
-                        "keywords": ["Dynamic phrase 1", "Dynamic phrase 2"],
-                        "image_count": 2
-                    }}
-                ]
-            }}
-        """
+        pre_hashtags = task.get("hashtags", "#Shorts #Viral")
+        target_lang = task.get("target_language", "English")
 
         try:
             print(f"🧠 Groq Director: Segmenting {niche.upper()} story...")
-            chat_completion = self.client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You output ONLY valid JSON dictionaries.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                model=self.model,
-                response_format={"type": "json_object"},
+
+            # --- CALL 2A: Narration only ---
+            narration_text = self.generate_narration(
+                sys_prompt, expert_role, source, target_lang, niche
             )
+            if not narration_text:
+                raise ValueError("Narration generation failed")
+            print(f"✅ Narration complete. Sending to packaging agent...")
 
-            response_content = chat_completion.choices[0].message.content
-            data = self.repair_json(response_content)
+            # --- CALL 2B: Keywords + metadata ---
+            data = self.generate_packaging(
+                narration_text, core_subject, niche, target_lang, pre_hashtags
+            )
+            if not data:
+                raise ValueError("Packaging generation failed")
 
-            if not data or "scenes" not in data:
-                raise ValueError("Invalid JSON structure from AI")
+            # --- Validate ---
+            is_valid, reason = self.validate_script(data)
+            if not is_valid:
+                raise ValueError(f"Script validation failed: {reason}")
+            print(f"✅ Script validated successfully.")
 
+            # --- Save to DB ---
             meta_filename = f"metadata_{task['_id']}.txt"
             with open(meta_filename, "w", encoding="utf-8") as f:
                 f.write(f"TITLE: {data.get('title')}\nHASHTAGS: {data.get('hashtags')}")
@@ -190,5 +268,6 @@ class ScriptGenerator:
                 },
             )
             print("✅ Script Segmented! AI generated unique search arrays for visuals.")
+
         except Exception as e:
             print(f"❌ Brain Error: {e}")
