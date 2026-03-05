@@ -116,7 +116,7 @@ class DBManager:
             "niche": extra_data.get("niche", "general"),
             "slot": slot,
             "folder_path": folder_path,
-            # 🟢 NEW: Save the specific voice for this video
+            "pexels_style": extra_data.get("pexels_style", "realistic"),
             "voice_model": extra_data.get("voice", "en-US-GuyNeural"),
             "target_language": extra_data.get("target_language", "English"),
             "hashtags": extra_data.get("hashtags", "#Shorts #Viral"),

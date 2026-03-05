@@ -1,5 +1,6 @@
 import os
 import gc
+import random
 import whisper
 import moviepy.video.fx as vfx
 from moviepy import (
@@ -13,7 +14,7 @@ import time
 import torch
 import shutil
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 
 # Dynamically find the absolute path to your project root
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -39,42 +40,263 @@ class VideoAssembler:
                 torch.cuda.empty_cache()
             print("🧹 Whisper model unloaded from memory.")
 
+    # ─────────────────────────────────────────────────────────────
+    # 🎬 IMAGE EFFECTS ENGINE
+    # Applies cinematic motion and color effects to static images
+    # so they feel like living video rather than slideshow stills.
+    # ─────────────────────────────────────────────────────────────
+
+    def _apply_image_effects(self, clip, img_duration):
+        """
+        Randomly selects and applies a cinematic effect to a static ImageClip.
+        All effects are applied frame-by-frame using numpy for RAM efficiency.
+        Returns an animated clip of the same duration.
+        """
+        effect = random.choice(
+            [
+                "ken_burns_zoom_in",
+                "ken_burns_zoom_out",
+                "pan_left_right",
+                "pan_right_left",
+                "pan_top_bottom",
+                "fade_in",
+                "fade_out",
+                "fade_in_out",
+                "gaussian_blur_reveal",
+                "color_grade_warm",
+                "color_grade_cool",
+                "vignette",
+                "slow_zoom_with_fade",
+                "slide_wipe_left",
+            ]
+        )
+
+        print(f"         ✨ Applying effect: {effect}")
+
+        W, H = 1080, 1920  # 9:16 portrait for Shorts
+        fps = 24
+        total_frames = int(img_duration * fps)
+
+        # Get base frame as numpy array
+        base_frame = clip.get_frame(0)
+        # Ensure correct size
+        pil_base = Image.fromarray(base_frame).resize((W, H), Image.LANCZOS)
+        base_np = np.array(pil_base)
+
+        def make_frames(effect_name):
+            frames = []
+            for fi in range(total_frames):
+                t = fi / fps
+                progress = fi / max(total_frames - 1, 1)  # 0.0 → 1.0
+                img = pil_base.copy()
+
+                # ── KEN BURNS: Slow zoom in from 100% to 115% ──
+                if effect_name == "ken_burns_zoom_in":
+                    scale = 1.0 + 0.15 * progress
+                    new_w = int(W * scale)
+                    new_h = int(H * scale)
+                    img = img.resize((new_w, new_h), Image.LANCZOS)
+                    left = (new_w - W) // 2
+                    top = (new_h - H) // 2
+                    img = img.crop((left, top, left + W, top + H))
+
+                # ── KEN BURNS: Slow zoom out from 115% to 100% ──
+                elif effect_name == "ken_burns_zoom_out":
+                    scale = 1.15 - 0.15 * progress
+                    new_w = int(W * scale)
+                    new_h = int(H * scale)
+                    img = img.resize((new_w, new_h), Image.LANCZOS)
+                    left = (new_w - W) // 2
+                    top = (new_h - H) // 2
+                    img = img.crop((left, top, left + W, top + H))
+
+                # ── PAN: Slide left to right across a wider image ──
+                elif effect_name == "pan_left_right":
+                    wide = img.resize((int(W * 1.2), H), Image.LANCZOS)
+                    max_offset = wide.width - W
+                    offset = int(max_offset * progress)
+                    img = wide.crop((offset, 0, offset + W, H))
+
+                # ── PAN: Slide right to left ──
+                elif effect_name == "pan_right_left":
+                    wide = img.resize((int(W * 1.2), H), Image.LANCZOS)
+                    max_offset = wide.width - W
+                    offset = int(max_offset * (1 - progress))
+                    img = wide.crop((offset, 0, offset + W, H))
+
+                # ── PAN: Slide top to bottom ──
+                elif effect_name == "pan_top_bottom":
+                    tall = img.resize((W, int(H * 1.2)), Image.LANCZOS)
+                    max_offset = tall.height - H
+                    offset = int(max_offset * progress)
+                    img = tall.crop((0, offset, W, offset + H))
+
+                # ── FADE IN: Black to image ──
+                elif effect_name == "fade_in":
+                    fade_duration = min(1.0, img_duration * 0.4)
+                    alpha = min(1.0, t / fade_duration)
+                    black = Image.new("RGB", (W, H), (0, 0, 0))
+                    img = Image.blend(black, img, alpha)
+
+                # ── FADE OUT: Image to black ──
+                elif effect_name == "fade_out":
+                    fade_start = img_duration * 0.6
+                    alpha = 1.0 - max(
+                        0.0,
+                        min(
+                            1.0, (t - fade_start) / (img_duration - fade_start + 0.001)
+                        ),
+                    )
+                    black = Image.new("RGB", (W, H), (0, 0, 0))
+                    img = Image.blend(black, img, alpha)
+
+                # ── FADE IN + OUT: Black → image → black ──
+                elif effect_name == "fade_in_out":
+                    fade = min(1.0, img_duration * 0.3)
+                    alpha_in = min(1.0, t / fade)
+                    alpha_out = 1.0 - max(
+                        0.0, min(1.0, (t - (img_duration - fade)) / (fade + 0.001))
+                    )
+                    alpha = min(alpha_in, alpha_out)
+                    black = Image.new("RGB", (W, H), (0, 0, 0))
+                    img = Image.blend(black, img, alpha)
+
+                # ── GAUSSIAN BLUR REVEAL: Blurry → sharp over time ──
+                elif effect_name == "gaussian_blur_reveal":
+                    blur_radius = max(0, 12 * (1 - progress))
+                    if blur_radius > 0.5:
+                        img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+
+                # ── COLOR GRADE: Warm (golden hour feel) ──
+                elif effect_name == "color_grade_warm":
+                    r, g, b = img.split()
+                    r = ImageEnhance.Brightness(r).enhance(1.15)
+                    b = ImageEnhance.Brightness(b).enhance(0.85)
+                    img = Image.merge("RGB", (r, g, b))
+                    img = ImageEnhance.Contrast(img).enhance(1.1)
+                    img = ImageEnhance.Color(img).enhance(1.2)
+
+                # ── COLOR GRADE: Cool (cinematic blue tone) ──
+                elif effect_name == "color_grade_cool":
+                    r, g, b = img.split()
+                    r = ImageEnhance.Brightness(r).enhance(0.88)
+                    b = ImageEnhance.Brightness(b).enhance(1.12)
+                    img = Image.merge("RGB", (r, g, b))
+                    img = ImageEnhance.Contrast(img).enhance(1.15)
+                    img = ImageEnhance.Color(img).enhance(0.9)
+
+                # ── VIGNETTE: Dark edges draw focus to center ──
+                elif effect_name == "vignette":
+                    vignette = Image.new("RGB", (W, H), (0, 0, 0))
+                    mask = Image.new("L", (W, H), 0)
+                    draw = ImageDraw.Draw(mask)
+                    margin = 0.35
+                    draw.ellipse(
+                        [
+                            int(W * margin),
+                            int(H * margin),
+                            int(W * (1 - margin)),
+                            int(H * (1 - margin)),
+                        ],
+                        fill=255,
+                    )
+                    mask = mask.filter(ImageFilter.GaussianBlur(radius=200))
+                    img = Image.composite(img, vignette, mask)
+
+                # ── SLOW ZOOM + FADE IN: Combines Ken Burns with fade ──
+                elif effect_name == "slow_zoom_with_fade":
+                    scale = 1.0 + 0.12 * progress
+                    new_w = int(W * scale)
+                    new_h = int(H * scale)
+                    img = img.resize((new_w, new_h), Image.LANCZOS)
+                    left = (new_w - W) // 2
+                    top = (new_h - H) // 2
+                    img = img.crop((left, top, left + W, top + H))
+                    fade = min(1.0, img_duration * 0.3)
+                    alpha = min(1.0, t / fade)
+                    black = Image.new("RGB", (W, H), (0, 0, 0))
+                    img = Image.blend(black, img, alpha)
+
+                # ── WIPE: Slide in from left ──
+                elif effect_name == "slide_wipe_left":
+                    wipe_w = int(W * min(1.0, progress * 2))
+                    black = Image.new("RGB", (W, H), (0, 0, 0))
+                    black.paste(img.crop((0, 0, wipe_w, H)), (0, 0))
+                    img = black
+
+                frames.append(np.array(img))
+            return frames
+
+        frames = make_frames(effect)
+
+        def make_frame(t):
+            fi = min(int(t * fps), total_frames - 1)
+            return frames[fi]
+
+        animated_clip = clip.with_duration(img_duration)
+        animated_clip = animated_clip.transform(
+            lambda get_frame, t: make_frame(t), apply_to="video"
+        )
+        return animated_clip
+
+    # ─────────────────────────────────────────────────────────────
+    # CLIP LOADER — detects static images and applies effects
+    # ─────────────────────────────────────────────────────────────
+
     def _make_clip(self, path, img_duration):
-        """Load, resize, crop, and forcefully loop visuals to match exact duration."""
+        """Load, resize, crop visuals. Static images get cinematic effects applied."""
         try:
             if not os.path.exists(path):
                 print(f"⚠️ Missing Visual File: {path}")
                 return None
 
             if path.endswith(".mp4"):
+                # ── VIDEO FILE: loop or trim to fit duration ──
                 clip = VideoFileClip(path, audio=False)
-                # 🟢 THE FIX: Force short videos to loop until they hit the exact img_duration
                 if clip.duration < img_duration:
                     clip = vfx.Loop(duration=img_duration).apply(clip)
                 else:
                     clip = clip.subclipped(0, img_duration)
+
+                # Standardize to 9:16
+                clip = clip.resized(height=1920)
+                if clip.w < 1080:
+                    clip = clip.resized(width=1080)
+                clip = clip.cropped(
+                    x_center=clip.w / 2,
+                    y_center=clip.h / 2,
+                    width=1080,
+                    height=1920,
+                )
+                return clip
+
             else:
+                # ── STATIC IMAGE: resize, crop, then apply cinematic effect ──
                 clip = ImageClip(path).with_duration(img_duration)
 
-            # Standardize to 9:16 (1080x1920) for Shorts
-            clip = clip.resized(height=1920)
-            if clip.w < 1080:
-                clip = clip.resized(width=1080)
-            clip = clip.cropped(
-                x_center=clip.w / 2,
-                y_center=clip.h / 2,
-                width=1080,
-                height=1920,
-            )
-            return clip
+                # Standardize to 9:16 first
+                clip = clip.resized(height=1920)
+                if clip.w < 1080:
+                    clip = clip.resized(width=1080)
+                clip = clip.cropped(
+                    x_center=clip.w / 2,
+                    y_center=clip.h / 2,
+                    width=1080,
+                    height=1920,
+                )
+
+                # 🎬 Apply random cinematic effect
+                clip = self._apply_image_effects(clip, img_duration)
+                return clip
+
         except Exception as e:
             print(f"⚠️ Error processing visual {path}: {e}")
             return None
 
     def _write_base_video(self, scenes, folder):
         """
-        PHASE 1: Stitch the raw video clips and audio together.
-        NO text overlays happen here to save RAM.
+        PHASE 1: Stitch raw video clips and audio together.
+        NO text overlays here to save RAM.
         """
         scene_files = []
 
@@ -193,9 +415,6 @@ class VideoAssembler:
         PHASE 2: Frame-by-frame Text Burn-in.
         Bypasses MoviePy's CompositeVideoClip memory leak entirely.
         """
-        # 🟢 THE HINDI OVERRIDE: Skip all text generation to save rendering time
-        import shutil
-
         if target_lang.strip().lower() == "hindi":
             print(
                 "🚫 Hindi language detected. Skipping Whisper and on-screen captions."
@@ -203,17 +422,12 @@ class VideoAssembler:
             shutil.copy(base_path, out_path)
             return
 
-        # 🟢 CRITICAL FIX: Load the model into memory for English videos
         self._load_whisper()
-
         print(f"📝 Processing audio for English captions...")
 
-        # Standard English transcription
         result = self.model.transcribe(
             full_audio_path, word_timestamps=True, fp16=False
         )
-
-        # 🟢 Free up RAM immediately after transcribing
         self._unload_whisper()
 
         words = []
@@ -231,10 +445,8 @@ class VideoAssembler:
             if i < len(words) - 1:
                 words[i]["end"] = min(words[i]["end"], words[i + 1]["start"])
 
-        # 🟢 Safely defaulting to Arial for pure English text
         FONT_PATH = r"C:\Windows\Fonts\arial.ttf"
 
-        # Load fonts for PIL
         try:
             caption_font = ImageFont.truetype(FONT_PATH, 90)
             title_font = ImageFont.truetype(FONT_PATH, 80)
@@ -243,13 +455,11 @@ class VideoAssembler:
             caption_font = ImageFont.load_default()
             title_font = ImageFont.load_default()
 
-        # Split long title into multiple lines so it fits on screen
         import textwrap
 
         wrapped_title = "\n".join(textwrap.wrap(video_title, width=20))
 
         def draw_frame(get_frame, t):
-            """This function is called for every single frame of the video."""
             frame = get_frame(t)
 
             active_word = None
@@ -263,11 +473,9 @@ class VideoAssembler:
             if not active_word and not show_title:
                 return frame
 
-            # Convert numpy array to PIL Image
             img = Image.fromarray(frame)
             draw = ImageDraw.Draw(img)
 
-            # Draw Title Hook (Top Center)
             if show_title:
                 bbox = draw.multiline_textbbox((0, 0), wrapped_title, font=title_font)
                 x = (1080 - (bbox[2] - bbox[0])) / 2
@@ -281,7 +489,6 @@ class VideoAssembler:
                     align="center",
                 )
 
-            # Draw Whisper Captions (Bottom Center)
             if active_word:
                 bbox = draw.textbbox((0, 0), active_word, font=caption_font)
                 x = (1080 - (bbox[2] - bbox[0])) / 2
@@ -300,11 +507,7 @@ class VideoAssembler:
         from moviepy import VideoFileClip
 
         base_video = VideoFileClip(base_path)
-
-        # Apply the custom frame transformation
         final_video = base_video.transform(draw_frame)
-
-        # Explicitly pass the original audio track back in
         final_video = final_video.with_audio(base_video.audio)
 
         final_video.write_videofile(
@@ -323,8 +526,6 @@ class VideoAssembler:
             base_video.close()
         except:
             pass
-        import gc
-
         gc.collect()
 
     def assemble(self):
@@ -338,7 +539,7 @@ class VideoAssembler:
         video_title = task.get("title", "Breaking News").upper()
         os.makedirs(folder, exist_ok=True)
 
-        print(f"🎞️ Assembling {len(scenes)} segments with PIL optimization...")
+        print(f"🎞️ Assembling {len(scenes)} segments with cinematic image effects...")
 
         base_path, full_audio_path = self._write_base_video(scenes, folder)
         if not base_path:
@@ -347,7 +548,6 @@ class VideoAssembler:
         out_path = os.path.join(folder, "FINAL_VIDEO.mp4")
         time.sleep(1)
 
-        # Execute the Frame-by-Frame text burn-in
         self._draw_text_on_video(
             base_path, full_audio_path, out_path, video_title, target_lang
         )

@@ -104,7 +104,13 @@ class ScriptGenerator:
             return None
 
     def generate_packaging(
-        self, narration_text, core_subject, niche, target_lang, pre_hashtags
+        self,
+        narration_text,
+        core_subject,
+        niche,
+        target_lang,
+        pre_hashtags,
+        pexels_style,
     ):
         print(f"📦 Packaging Agent: Generating keywords and metadata...")
 
@@ -115,9 +121,11 @@ class ScriptGenerator:
             {narration_text}
 
             KEYWORD RULES:
+            - 
             - Every keyword must be 1-3 plain English nouns that describe a PHYSICAL, FILMABLE object or place.
             - Core subject anchor: "{core_subject}". At least one keyword per scene must physically relate to this.
             - Niche: "{niche}". If niche needs illustrated style (like "comics"), prefix keywords with "comic" or "animated".
+            - Use the Pexels styes as "{pexels_style}"
             - NEVER use: "graphs", "charts", "news", "newspaper", "county", "area", "place", "energy" (too abstract).
             - STRICT NO DUPLICATE RULE: Scan ALL keywords across ALL scenes before finalizing. If a phrase appears more than once, replace the duplicate with a visually distinct alternative. "Oil Field" can appear ONCE maximum across the entire script.
             - VISUAL SPECIFICITY RULE: Each keyword must be specific enough that a photographer would know exactly what to film. BAD: "Energy", "Equipment", "Area". GOOD: "Oil Derrick", "Steel Pipeline", "Gas Pump".
@@ -219,6 +227,7 @@ class ScriptGenerator:
         core_subject = meta_data.get("core_subject", niche)
         pre_hashtags = task.get("hashtags", "#Shorts #Viral")
         target_lang = task.get("target_language", "English")
+        pexels_style = task.get("pexels_style", "realistic")
 
         try:
             print(f"🧠 Groq Director: Segmenting {niche.upper()} story...")
@@ -233,7 +242,12 @@ class ScriptGenerator:
 
             # --- CALL 2B: Keywords + metadata ---
             data = self.generate_packaging(
-                narration_text, core_subject, niche, target_lang, pre_hashtags
+                narration_text,
+                core_subject,
+                niche,
+                target_lang,
+                pre_hashtags,
+                pexels_style,
             )
             if not data:
                 raise ValueError("Packaging generation failed")

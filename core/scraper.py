@@ -3,6 +3,7 @@ import feedparser
 import random
 import datetime
 import re
+import json
 import os
 from groq import Groq
 from core.db_manager import DBManager
@@ -19,30 +20,22 @@ class NewsScraper:
         self.model = "llama-3.3-70b-versatile"
 
         self.MASTER_NICHES = {
-           "space": {
+            # ════════════════════════════════════════════════════════
+            # KEPT NICHES — RSS fixed, pexels_style added
+            # ════════════════════════════════════════════════════════
+            "space": {
                 "rss_feeds": [
                     "https://www.space.com/feeds/all",
                     "https://universetoday.com/feed",
                     "https://phys.org/rss-feed/space-news/",
-                    "https://www.nasa.gov/rss/dyn/breaking_news.rss",
+                    "https://www.nasa.gov/feeds/iotd-feed/",
                     "https://spacenews.com/feed/",
-                    "https://www.esa.int/rssfeed/Our_Activities/Space_News",
+                    "https://scitechdaily.com/feed/",
                 ],
+                "pexels_style": "realistic",
                 "hashtags": "#Space #Astronomy #Universe #BlackHole #NASA #Cosmos #Astrophysics",
                 "en_voice": "en-GB-RyanNeural",
                 "hi_voice": "hi-IN-SwaraNeural",
-            },
-            "mysteries": {
-                "rss_feeds": [
-                    "https://www.coasttocoastam.com/rss/",
-                    "https://www.ancient-origins.net/rss.xml",
-                    "https://www.unexplained-mysteries.com/rss/news.xml",
-                    "https://mysteriousuniverse.org/feed/",
-                    "https://anomalien.com/feed/",
-                ],
-                "hashtags": "#Mystery #Unsolved #Paranormal #Cryptid #Conspiracy #Creepy",
-                "en_voice": "en-US-ChristopherNeural",
-                "hi_voice": "hi-IN-MadhurNeural",
             },
             "tech_ai": {
                 "rss_feeds": [
@@ -52,30 +45,33 @@ class NewsScraper:
                     "https://www.artificialintelligence-news.com/feed/",
                     "https://www.wired.com/feed/tag/ai/latest/rss",
                 ],
+                "pexels_style": "futuristic",
                 "hashtags": "#AI #ArtificialIntelligence #Cyberpunk #TechNews #FutureTech #Robotics",
                 "en_voice": "en-US-GuyNeural",
                 "hi_voice": "hi-IN-SwaraNeural",
             },
             "psychology": {
                 "rss_feeds": [
-                    "https://www.psychologytoday.com/us/front/feed",
                     "https://www.sciencedaily.com/rss/mind_brain/psychology.xml",
                     "https://www.psypost.org/feed/",
                     "https://neurosciencenews.com/neuroscience-topics/psychology/feed/",
                     "https://digest.bps.org.uk/feed/",
+                    "https://www.apa.org/news/psycport/psycport.rss",
                 ],
+                "pexels_style": "human",
                 "hashtags": "#Psychology #BodyLanguage #DarkPsychology #MindTricks #Manipulation #MentalHealth",
                 "en_voice": "en-US-BrianNeural",
                 "hi_voice": "hi-IN-MadhurNeural",
             },
             "geography": {
                 "rss_feeds": [
-                    "https://www.nationalgeographic.com/latest-stories/rss",
                     "https://www.atlasobscura.com/feeds/latest",
                     "https://www.earth.com/feed/",
                     "https://www.smithsonianmag.com/rss/travel/",
                     "https://geoawesomeness.com/feed/",
+                    "https://www.lonelyplanet.com/feed",
                 ],
+                "pexels_style": "location",
                 "hashtags": "#Geography #HiddenPlaces #AtlasObscura #Forbidden #TravelFacts",
                 "en_voice": "en-AU-WilliamNeural",
                 "hi_voice": "hi-IN-SwaraNeural",
@@ -86,8 +82,9 @@ class NewsScraper:
                     "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
                     "https://www.aljazeera.com/xml/rss/all.xml",
                     "https://feeds.npr.org/1004/rss.xml",
-                    "https://yahoo.com/news/rss/world",
+                    "https://feeds.reuters.com/reuters/worldNews",
                 ],
+                "pexels_style": "documentary",
                 "hashtags": "#WorldNews #GlobalNews #BreakingNews #CurrentEvents #Geopolitics #NewsUpdate",
                 "en_voice": "en-US-SteffanNeural",
                 "hi_voice": "hi-IN-MadhurNeural",
@@ -97,9 +94,10 @@ class NewsScraper:
                     "https://www.apartmenttherapy.com/feed",
                     "https://design-milk.com/feed/",
                     "https://www.dezeen.com/interiors/feed/",
-                    "https://ikeahackers.net/feed",
                     "https://www.housebeautiful.com/rss/all.xml",
+                    "https://www.houzz.com/ideabooks/rss",
                 ],
+                "pexels_style": "interior",
                 "hashtags": "#HomeDecor #InteriorDesign #Renovation #DIYHome #HouseMakeover #DesignInspo",
                 "en_voice": "en-US-JennyNeural",
                 "hi_voice": "hi-IN-SwaraNeural",
@@ -112,11 +110,97 @@ class NewsScraper:
                     "https://www.livehistoryindia.com/feed/",
                     "https://www.smithsonianmag.com/rss/history/",
                 ],
+                "pexels_style": "historical",
                 "hashtags": "#IndianHistory #AncientIndia #HistoryFacts #HistoryOfIndia #Historical #Bharat",
                 "en_voice": "en-IN-PrabhatNeural",
                 "hi_voice": "hi-IN-MadhurNeural",
             },
+            # ════════════════════════════════════════════════════════
+            # NEW VIRAL NICHES
+            # ════════════════════════════════════════════════════════
+            "science_facts": {
+                "rss_feeds": [
+                    "https://www.sciencedaily.com/rss/top/science.xml",
+                    "https://www.zmescience.com/feed/",
+                    "https://scitechdaily.com/feed/",
+                    "https://www.newscientist.com/feed/home/",
+                    "https://feeds.feedburner.com/sciencealert-latestnews",
+                ],
+                "pexels_style": "nature",
+                "hashtags": "#ScienceFacts #DidYouKnow #MindBlowing #Science #Facts #Educational",
+                "en_voice": "en-GB-RyanNeural",
+                "hi_voice": "hi-IN-SwaraNeural",
+            },
+            "health_wellness": {
+                "rss_feeds": [
+                    "https://www.sciencedaily.com/rss/health_medicine/",
+                    "https://www.medicalnewstoday.com/rss/medicalnewstoday.xml",
+                    "https://www.healthline.com/rss/",
+                    "https://feeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC",
+                    "https://www.who.int/rss-feeds/news-english.xml",
+                ],
+                "pexels_style": "medical",
+                "hashtags": "#Health #Wellness #HealthFacts #MedicalFacts #BodyFacts #HealthTips",
+                "en_voice": "en-US-JennyNeural",
+                "hi_voice": "hi-IN-SwaraNeural",
+            },
+            "animals_nature": {
+                "rss_feeds": [
+                    "https://www.sciencedaily.com/rss/plants_animals/",
+                    "https://feeds.nationalgeographic.com/ng/News/News_Main",
+                    "https://www.livescience.com/feeds/all",
+                    "https://insider.si.edu/category/animals/feed/",
+                    "https://www.earth.com/feed/",
+                ],
+                "pexels_style": "wildlife",
+                "hashtags": "#Animals #Wildlife #Nature #WildAnimals #AnimalFacts #NatureFacts",
+                "en_voice": "en-AU-WilliamNeural",
+                "hi_voice": "hi-IN-SwaraNeural",
+            },
+            "finance_economy": {
+                "rss_feeds": [
+                    "https://feeds.reuters.com/reuters/businessNews",
+                    "https://feeds.bloomberg.com/markets/news.rss",
+                    "https://www.marketwatch.com/rss/topstories",
+                    "https://economictimes.indiatimes.com/rssfeedsdefault.cms",
+                    "https://www.businessinsider.com/rss",
+                ],
+                "pexels_style": "business",
+                "hashtags": "#Finance #Economy #MoneyFacts #StockMarket #Investment #FinanceFacts",
+                "en_voice": "en-US-GuyNeural",
+                "hi_voice": "hi-IN-MadhurNeural",
+            },
+            "bizarre_facts": {
+                "rss_feeds": [
+                    "https://www.zmescience.com/feed/",
+                    "https://www.atlasobscura.com/feeds/latest",
+                    "https://www.mentalfloss.com/rss.xml",
+                    "https://www.livescience.com/feeds/all",
+                    "https://www.odditycentral.com/feed",
+                ],
+                "pexels_style": "nature",
+                "hashtags": "#BizarreFacts #WeirdFacts #DidYouKnow #MindBlowing #StrangeFacts #Shocking",
+                "en_voice": "en-US-ChristopherNeural",
+                "hi_voice": "hi-IN-MadhurNeural",
+            },
+            "history_world": {
+                "rss_feeds": [
+                    "https://www.smithsonianmag.com/rss/history/",
+                    "https://www.ancient-origins.net/rss.xml",
+                    "https://www.historyextra.com/feed/",
+                    "https://www.historyhit.com/feed/",
+                    "https://www.thehistoryblog.com/feed",
+                ],
+                "pexels_style": "historical",
+                "hashtags": "#WorldHistory #HistoryFacts #AncientHistory #HistoricalFacts #History #Civilization",
+                "en_voice": "en-GB-RyanNeural",
+                "hi_voice": "hi-IN-MadhurNeural",
+            },
         }
+
+    # ─────────────────────────────────────────────
+    # TIME SLOT LOGIC
+    # ─────────────────────────────────────────────
 
     def get_time_slot(self):
         h = datetime.datetime.now().hour
@@ -133,6 +217,21 @@ class NewsScraper:
         else:
             return "8_pm"
 
+    def _get_language_for_slot(self, slot, niche_data):
+        """
+        Centralized language + voice selection.
+        English for early morning slots, Hindi for afternoon/evening.
+        """
+        english_slots = ["mid_night", "4_am", "8_am"]
+        if slot in english_slots:
+            return "English", niche_data.get("en_voice", "en-US-GuyNeural")
+        else:
+            return "Hindi", niche_data.get("hi_voice", "hi-IN-MadhurNeural")
+
+    # ─────────────────────────────────────────────
+    # RSS FETCHER
+    # ─────────────────────────────────────────────
+
     def fetch_rss(self, url):
         headers = {"User-Agent": "Mozilla/5.0"}
         try:
@@ -147,22 +246,38 @@ class NewsScraper:
             pass
         return []
 
+    # ─────────────────────────────────────────────
+    # AI TOPIC PICKER
+    # ─────────────────────────────────────────────
+
     def pick_top_3_viral_topics(self, candidates, niche):
+        """
+        Uses Groq to pick the 3 most viral-worthy headlines
+        from a pool of RSS candidates for the given niche.
+        """
         titles = [f"{i}. {c['title']}" for i, c in enumerate(candidates)]
         titles_text = "\n".join(titles)
 
         prompt = f"""
-        TASK: Pick THREE headlines that have the highest potential to go VIRAL as YouTube Shorts.
-        NICHE: {niche}
-        
-        CRITICAL RULES: 
-        1. Only select FACTUAL, INFORMATIVE, or MYSTERIOUS topics (e.g., scientific discoveries, historical events, weird geography).
-        2. DO NOT pick opinion pieces, travel diaries, personal interviews, or motivational stories.
-        
-        HEADLINES:
-        {titles_text}
-        
-        OUTPUT FORMAT: Return ONLY a JSON dictionary with a key "indices" containing exactly 3 integer indices. Example: {{"indices": [5, 12, 2]}}
+            TASK: Pick THREE headlines with the highest potential to go VIRAL as YouTube Shorts.
+            NICHE: {niche}
+
+            SELECTION RULES:
+            1. Prefer FACTUAL, SURPRISING, or EDUCATIONAL topics — scientific discoveries,
+            historical revelations, weird facts, health breakthroughs, financial insights,
+            animal behavior, geography oddities, or major world events.
+            2. DO NOT pick: opinion pieces, personal interviews, travel diaries,
+            product reviews, motivational stories, or listicles without substance.
+            3. For 'bizarre_facts' and 'science_facts': prioritize the most surprising/shocking facts.
+            4. For 'finance_economy': prioritize stories with real numbers and consequences.
+            5. For 'animals_nature': prioritize unusual animal behavior or new species discoveries.
+            6. For 'history_world' and 'indian_history': prioritize newly discovered or little-known facts.
+
+            HEADLINES:
+            {titles_text}
+
+            OUTPUT FORMAT: Return ONLY a JSON dict with key "indices" containing exactly 3 integers.
+            Example: {{"indices": [5, 12, 2]}}
         """
         try:
             chat_completion = self.client.chat.completions.create(
@@ -176,8 +291,6 @@ class NewsScraper:
                 model=self.model,
                 response_format={"type": "json_object"},
             )
-            import json
-
             response_data = json.loads(
                 chat_completion.choices[0].message.content.strip()
             )
@@ -190,21 +303,21 @@ class NewsScraper:
         except:
             return random.sample(candidates, min(3, len(candidates)))
 
+    # ─────────────────────────────────────────────
+    # ARTICLE EXTRACTOR
+    # ─────────────────────────────────────────────
+
     def extract_full_article(self, url):
-        """Visits the webpage and extracts all paragraph text bypassing anti-bot walls."""
+        """Visits the webpage and extracts paragraph text bypassing anti-bot walls."""
         print(f"      📖 Deep Reading full article from: {url}")
         try:
             import cloudscraper
 
-            # Create a scraper that perfectly mimics a standard Windows Desktop Chrome user
             scraper = cloudscraper.create_scraper(
                 browser={"browser": "chrome", "platform": "windows", "desktop": True}
             )
-
-            # Use the new scraper instead of standard 'requests'
             res = scraper.get(url, timeout=15)
             soup = BeautifulSoup(res.text, "html.parser")
-
             paragraphs = soup.find_all("p")
             full_text = " ".join([p.get_text() for p in paragraphs])
 
@@ -217,6 +330,59 @@ class NewsScraper:
             print(f"      ❌ Failed to read full article: {e}")
             return None
 
+    # ─────────────────────────────────────────────
+    # MANUAL IDEA REFINER (used by main.py)
+    # ─────────────────────────────────────────────
+
+    def refine_user_idea(self, topic, content, feedback=""):
+        """
+        Takes a user's raw topic/content and uses Groq to refine it
+        into a clean, factual article-style source text for brain.py.
+        Called by main.py in manual mode.
+        """
+        print(f"      🧠 Refining idea: '{topic}'...")
+
+        feedback_section = (
+            f"\nPREVIOUS FEEDBACK TO ADDRESS: {feedback}" if feedback else ""
+        )
+
+        prompt = f"""
+            TASK: You are a research assistant. A user wants to make a YouTube Short about the following topic.
+            Rewrite and expand their idea into a clean, factual, well-structured article (300-500 words)
+            that a scriptwriter can use as source material.
+
+            TOPIC: {topic}
+            USER'S IDEA: {content}{feedback_section}
+
+            RULES:
+            1. Only include facts — no opinions, no fluff, no personal stories.
+            2. Structure it clearly: background → key facts → significance.
+            3. Use simple language. Avoid jargon.
+            4. Do NOT add a title or headline — just the body text.
+            5. If the idea is too vague, make reasonable factual assumptions and expand on them.
+
+            OUTPUT: Plain text article only. No JSON, no bullet points, no headers.
+        """
+        try:
+            chat_completion = self.client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a factual research writer. Output plain text only.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                model=self.model,
+            )
+            return chat_completion.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"      ❌ Idea refinement failed: {e}")
+            return content  # Fall back to original if AI fails
+
+    # ─────────────────────────────────────────────
+    # MAIN SCRAPER ORCHESTRATOR
+    # ─────────────────────────────────────────────
+
     def scrape_targeted_niche(self, forced_slot=None):
         slot = forced_slot if forced_slot else self.get_time_slot()
         used_niches = self.db.get_used_niches_today()
@@ -224,6 +390,7 @@ class NewsScraper:
 
         available_niches = list(all_niches - used_niches)
         if not available_niches:
+            print("⚠️ All niches used today. Resetting pool.")
             available_niches = list(all_niches)
 
         selected_niche = random.choice(available_niches)
@@ -233,6 +400,10 @@ class NewsScraper:
         print(
             f"🎯 Dynamic Strategy Active: Selected '{selected_niche.upper()}' for {slot.upper()} slot."
         )
+
+        # 🟢 Centralized language + voice selection
+        target_lang, selected_voice = self._get_language_for_slot(slot, niche_data)
+        print(f"🌐 Language: {target_lang} | Voice: {selected_voice}")
 
         candidates = []
         for url in sources:
@@ -248,6 +419,7 @@ class NewsScraper:
                     )
 
         if not candidates:
+            print(f"❌ No RSS candidates found for '{selected_niche}'.")
             return
 
         attempts, max_tries = 0, 4
@@ -257,31 +429,21 @@ class NewsScraper:
                 c for c in top_3 if not self.db.task_exists(c["title"], c["link"])
             ]
 
+            # Remove tried candidates from pool regardless of outcome
             for c in top_3:
                 if c in candidates:
                     candidates.remove(c)
 
             if unique_winners:
                 final_winner = random.choice(unique_winners)
-                print(
-                    f"      🎉 Unique Topic Secured: '{final_winner['title'][:40]}...'"
-                )
+                print(f"      🎉 Unique Topic Secured: '{final_winner['title'][:60]}'")
 
+                # Try deep article extraction first
                 full_content = self.extract_full_article(final_winner["link"])
                 if not full_content:
                     print("      ⚠️ Deep Read failed, falling back to RSS summary.")
-                    raw_summary = final_winner["summary"]
-                    import re
-
-                    clean_summary = re.sub(r"<[^>]+>", "", raw_summary)
+                    clean_summary = re.sub(r"<[^>]+>", "", final_winner["summary"])
                     full_content = clean_summary[:5000]
-
-                if slot in ["mid_night", "4_am", "8_am"]:
-                    target_lang = "English"
-                    selected_voice = niche_data.get("en_voice", "en-US-GuyNeural")
-                else:
-                    target_lang = "Hindi"
-                    selected_voice = niche_data.get("hi_voice", "hi-IN-MadhurNeural")
 
                 self.db.add_task(
                     title=final_winner["title"],
@@ -293,10 +455,17 @@ class NewsScraper:
                         "niche_slot": slot,
                         "source_url": final_winner["link"],
                         "hashtags": niche_data.get("hashtags", "#Shorts #Viral"),
-                        "voice": selected_voice,  # 🟢 Dynamically selected voice
-                        "target_language": target_lang,  # 🟢 Pass the language to the DB
+                        "pexels_style": niche_data.get(
+                            "pexels_style", "realistic"
+                        ),  # 🟢 Now passed to DB
+                        "voice": selected_voice,
+                        "target_language": target_lang,
                     },
                 )
                 return
+
             attempts += 1
-        print("❌ Could not find a unique viral topic.")
+
+        print(
+            f"❌ Could not find a unique viral topic for '{selected_niche}' after {max_tries} attempts."
+        )
