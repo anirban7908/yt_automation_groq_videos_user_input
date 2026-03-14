@@ -466,5 +466,63 @@
         "youtube_id": "r38S_OeMhZY",
         "time_slot": "8_pm",
         "generated_at": "2026-03-07 22:32:32"
+    },
+    {
+        "video_name": "Space Effects Brain!",
+        "youtube_id": "31J6akZ9aFU",
+        "time_slot": "8_pm",
+        "generated_at": "2026-03-08 00:07:17"
+    },
+    {
+        "video_name": "Dark Rushmore Secrets",
+        "youtube_id": "mSeaf4UFFxM",
+        "time_slot": "mid_night",
+        "generated_at": "2026-03-08 01:35:34"
+    },
+    {
+        "video_name": "Aliens Hiding?",
+        "youtube_id": "3R1WnYesjPc",
+        "time_slot": "8_pm",
+        "generated_at": "2026-03-09 00:37:50"
+    },
+    {
+        "video_name": "Food Under Threat!",
+        "youtube_id": "g75uRCOxDtI",
+        "time_slot": "mid_night",
+        "generated_at": "2026-03-09 02:08:08"
+    },
+    {
+        "video_name": "Aging Faster?",
+        "youtube_id": "EuAtwzo-m38",
+        "time_slot": "8_pm",
+        "generated_at": "2026-03-13 21:24:24"
+    },
+    {
+        "video_name": "Aging Faster?",
+        "youtube_id": "EuAtwzo-m38",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-03-13 21:27:23"
+    },
+    {
+        "video_name": "Fastest Bird Alive!",
+        "youtube_id": "4ryVWUo1oWo",
+        "time_slot": "8_pm",
+        "mode": "manual",
+        "generated_at": "2026-03-13 22:07:35"
+    },
+    {
+        "video_name": "India Stocks Crash!",
+        "youtube_id": "HQ5AEx37qY8",
+        "time_slot": "8_pm",
+        "mode": "manual",
+        "generated_at": "2026-03-13 22:58:11"
+    },
+    {
+        "video_name": "Cosmic Crash!",
+        "youtube_id": "MT-WLhBNP3Y",
+        "time_slot": "mid_day",
+        "mode": "manual",
+        "generated_at": "2026-03-14 14:51:25"
     }
 ]

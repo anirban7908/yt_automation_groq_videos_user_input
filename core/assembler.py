@@ -56,66 +56,6 @@ NICHE_STYLES = {
         "film_grain": 0.2,
         "light_leak_color": (180, 100, 60),
     },
-    "geography": {
-        "allowed_transitions": ["crossfade", "whip_pan", "zoom_cut", "light_leak"],
-        "color_grade": {
-            "r": 1.05,
-            "g": 1.10,
-            "b": 0.90,
-            "contrast": 1.2,
-            "saturation": 1.5,
-        },
-        "film_grain": 0.1,
-        "light_leak_color": (255, 200, 80),
-    },
-    "worldnews": {
-        "allowed_transitions": ["crossfade", "zoom_cut"],
-        "color_grade": {
-            "r": 0.90,
-            "g": 0.90,
-            "b": 0.90,
-            "contrast": 1.3,
-            "saturation": 0.75,
-        },
-        "film_grain": 0.25,
-        "light_leak_color": (200, 200, 200),
-    },
-    "home_decor": {
-        "allowed_transitions": ["crossfade", "zoom_cut"],
-        "color_grade": {
-            "r": 1.10,
-            "g": 1.05,
-            "b": 0.92,
-            "contrast": 1.1,
-            "saturation": 1.2,
-        },
-        "film_grain": 0.05,
-        "light_leak_color": (255, 220, 150),
-    },
-    "indian_history": {
-        "allowed_transitions": ["crossfade", "zoom_cut", "light_leak"],
-        "color_grade": {
-            "r": 1.15,
-            "g": 0.95,
-            "b": 0.70,
-            "contrast": 1.2,
-            "saturation": 1.1,
-        },
-        "film_grain": 0.4,
-        "light_leak_color": (200, 120, 30),
-    },
-    "science_facts": {
-        "allowed_transitions": ["crossfade", "whip_pan", "zoom_cut"],
-        "color_grade": {
-            "r": 0.90,
-            "g": 1.10,
-            "b": 1.15,
-            "contrast": 1.2,
-            "saturation": 1.3,
-        },
-        "film_grain": 0.15,
-        "light_leak_color": (100, 220, 255),
-    },
     "health_wellness": {
         "allowed_transitions": ["crossfade", "zoom_cut"],
         "color_grade": {
@@ -195,7 +135,49 @@ class VideoAssembler:
     def __init__(self):
         self.db = DBManager()
         torch.set_num_threads(2)
-        self.model = None
+        self.model = None           # Whisper (lazy loaded)
+        self.clip_model = None      # CLIP (lazy loaded, unloaded before Whisper)
+        self.clip_preprocess = None
+        self.clip_device = "cpu"
+
+    # ─────────────────────────────────────────────
+    # MODEL LIFECYCLE
+    # ─────────────────────────────────────────────
+
+    def _load_clip(self):
+        """
+        Load CLIP ViT-B/32 once and cache in self.clip_model.
+        ~400MB RAM on CPU. Loaded once per assemble() call, then freed
+        before Whisper loads so both never compete for RAM simultaneously.
+
+        Install: pip install git+https://github.com/openai/CLIP.git
+        """
+        if self.clip_model is None:
+            try:
+                import clip
+                print("🎯 Loading CLIP model for AI-powered scene detection...")
+                self.clip_model, self.clip_preprocess = clip.load(
+                    "ViT-B/32", device=self.clip_device, jit=False
+                )
+                self.clip_model.eval()
+                print("✅ CLIP model ready.")
+            except ImportError:
+                print("⚠️ CLIP not installed — falling back to OpenCV motion scoring.")
+                print("   Install: pip install git+https://github.com/openai/CLIP.git")
+                self.clip_model = "unavailable"
+            except Exception as e:
+                print(f"⚠️ CLIP load failed: {e} — falling back to OpenCV.")
+                self.clip_model = "unavailable"
+
+    def _unload_clip(self):
+        """Free CLIP RAM before Whisper loads."""
+        if self.clip_model not in (None, "unavailable"):
+            del self.clip_model
+            del self.clip_preprocess
+            self.clip_model = None
+            self.clip_preprocess = None
+            gc.collect()
+            print("🧹 CLIP model unloaded from memory.")
 
     def _load_whisper(self):
         if self.model is None:
@@ -211,10 +193,30 @@ class VideoAssembler:
                 torch.cuda.empty_cache()
             print("🧹 Whisper model unloaded from memory.")
 
-    def _find_best_start(self, video_path, required_duration):
+    # ─────────────────────────────────────────────
+    # AI-POWERED SMART START (CLIP + OpenCV fallback)
+    # ─────────────────────────────────────────────
+
+    def _find_best_start(self, video_path, required_duration, keyword=""):
+        """
+        Finds the best starting timestamp for a video clip using:
+
+        STEP 1 — CLIP semantic scoring (primary):
+            Encodes 'keyword' as text, scores every sampled frame against it,
+            and starts at the frame most visually relevant to the keyword.
+            e.g. keyword="WW2 submarine interior" → CLIP finds the frame that
+            actually looks like a submarine interior, not a random intro frame.
+
+        STEP 2 — OpenCV pixel-diff (fallback if CLIP unavailable):
+            Scores frames by motion/change and picks from the most active moments.
+
+        STEP 3 — Random start (last resort).
+
+        keyword: the Pexels search term used to download this clip.
+        """
+        # ── Get video metadata first ──
         try:
             import cv2
-
             cap = cv2.VideoCapture(video_path)
             fps = cap.get(cv2.CAP_PROP_FPS) or 24
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -223,8 +225,69 @@ class VideoAssembler:
             if max_start <= 0.5:
                 cap.release()
                 return 0.0
+        except Exception as e:
+            print(f"         ⚠️ Could not read video metadata: {e}")
+            return 0.0
+
+        # ── STEP 1: CLIP semantic scoring ──
+        if self.clip_model not in (None, "unavailable") and keyword:
+            try:
+                import clip as clip_lib
+
+                # Encode keyword text once
+                text_tokens = clip_lib.tokenize([keyword]).to(self.clip_device)
+                with torch.no_grad():
+                    text_features = self.clip_model.encode_text(text_tokens)
+                    text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+
+                # Sample ~1 frame per second (CPU-friendly)
+                sample_step = max(6, int(fps))
+                frame_scores = []
+                max_frame = int(min(total_frames, (max_start + required_duration) * fps))
+
+                for fi in range(0, max_frame, sample_step):
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, fi)
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    timestamp = fi / fps
+                    if timestamp > max_start:
+                        break
+
+                    # BGR → RGB → PIL → CLIP preprocess
+                    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    pil_img = Image.fromarray(rgb)
+                    img_tensor = self.clip_preprocess(pil_img).unsqueeze(0).to(self.clip_device)
+
+                    with torch.no_grad():
+                        img_features = self.clip_model.encode_image(img_tensor)
+                        img_features = img_features / img_features.norm(dim=-1, keepdim=True)
+                        score = float((img_features @ text_features.T).squeeze())
+
+                    frame_scores.append((timestamp, score))
+
+                cap.release()
+
+                if frame_scores:
+                    # Pick from top 3 to add a little variety
+                    top = sorted(frame_scores, key=lambda x: x[1], reverse=True)[:3]
+                    best_start = random.choice(top)[0]
+                    print(f"         🎯 CLIP start: {best_start:.1f}s — matched '{keyword}'")
+                    return best_start
+
+            except Exception as e:
+                print(f"         ⚠️ CLIP scoring failed: {e} — falling back to OpenCV.")
+                try:
+                    cap.release()
+                except:
+                    pass
+
+        # ── STEP 2: OpenCV pixel-diff fallback ──
+        try:
+            cap = cv2.VideoCapture(video_path)
             prev_frame = None
             frame_scores = []
+
             for fi in range(0, total_frames, 3):
                 cap.set(cv2.CAP_PROP_POS_FRAMES, fi)
                 ret, frame = cap.read()
@@ -239,26 +302,26 @@ class VideoAssembler:
                     if timestamp <= max_start:
                         frame_scores.append((timestamp, score))
                 prev_frame = gray
+
             cap.release()
-            if not frame_scores:
-                return 0.0
-            top_moments = sorted(frame_scores, key=lambda x: x[1], reverse=True)[:5]
-            best_start = random.choice(top_moments)[0]
-            print(f"         🎯 Smart start: {best_start:.1f}s (skipped boring intro)")
-            return best_start
-        except ImportError:
-            print("         ⚠️ OpenCV not installed. Run: pip install opencv-python")
-            try:
-                clip = VideoFileClip(video_path, audio=False)
-                total = clip.duration
-                clip.close()
-                max_start = max(0.0, total - required_duration)
-                return random.uniform(0, max_start * 0.6) if max_start > 1 else 0.0
-            except:
-                return 0.0
+
+            if frame_scores:
+                top = sorted(frame_scores, key=lambda x: x[1], reverse=True)[:5]
+                best_start = random.choice(top)[0]
+                print(f"         🎯 OpenCV start: {best_start:.1f}s (motion-based)")
+                return best_start
+
         except Exception as e:
-            print(f"         ⚠️ Scene detection error: {e}. Using start=0.")
-            return 0.0
+            print(f"         ⚠️ OpenCV fallback also failed: {e}")
+
+        # ── STEP 3: Random start last resort ──
+        safe_start = random.uniform(0, max_start * 0.6) if max_start > 1 else 0.0
+        print(f"         🎯 Random start: {safe_start:.1f}s")
+        return safe_start
+
+    # ─────────────────────────────────────────────
+    # COLOR + GRAIN EFFECTS
+    # ─────────────────────────────────────────────
 
     def _apply_color_grade(self, pil_image, grade):
         r, g, b = pil_image.split()
@@ -277,6 +340,10 @@ class VideoAssembler:
             -int(30 * intensity), int(30 * intensity), frame_np.shape, dtype=np.int16
         )
         return np.clip(frame_np.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+
+    # ─────────────────────────────────────────────
+    # IMAGE EFFECTS ENGINE (14 effects for static images)
+    # ─────────────────────────────────────────────
 
     def _apply_image_effects(self, clip, img_duration):
         effect = random.choice(
@@ -436,6 +503,10 @@ class VideoAssembler:
             lambda gf, t: make_frame(t), apply_to="video"
         )
 
+    # ─────────────────────────────────────────────
+    # TRANSITION ENGINE
+    # ─────────────────────────────────────────────
+
     def _make_transition_frames(self, clip_a, clip_b, transition, leak_color):
         W, H, fps = 1080, 1920, 24
         durations = {
@@ -496,7 +567,20 @@ class VideoAssembler:
             print(f"      ⚠️ Transition '{transition}' error: {e}")
         return frames
 
-    def _make_clip(self, path, img_duration, niche_style):
+    # ─────────────────────────────────────────────
+    # CLIP BUILDER
+    # ─────────────────────────────────────────────
+
+    def _make_clip(self, path, img_duration, niche_style, keyword=""):
+        """
+        Builds a single video or image clip with:
+        - CLIP-powered smart start (video only) — uses keyword for semantic matching
+        - 1.15x fast-forward (video only) — energetic hyperlapse feel
+        - Color grading (both)
+        - Image effects engine (images only)
+
+        keyword: the Pexels search term, passed to CLIP for semantic frame selection.
+        """
         try:
             if not os.path.exists(path):
                 print(f"⚠️ Missing Visual File: {path}")
@@ -505,25 +589,43 @@ class VideoAssembler:
             grade = niche_style.get("color_grade", {})
 
             if path.endswith(".mp4"):
-                best_start = self._find_best_start(path, img_duration)
+                # ── AI smart start: CLIP finds the frame matching the keyword ──
+                best_start = self._find_best_start(path, img_duration, keyword=keyword)
                 clip = VideoFileClip(path, audio=False)
 
-                if clip.duration < img_duration:
-                    clip = vfx.Loop(duration=img_duration).apply(clip)
-                    clip = clip.subclipped(0, img_duration)
+                # ── 1.15x fast-forward logic ──────────────────────────────────
+                # To end up with exactly img_duration after 1.15x speed-up,
+                # we need to grab img_duration * 1.15 seconds of raw footage.
+                # Then after speed scaling the result is exactly img_duration.
+                raw_needed = img_duration * 1.15
+
+                if clip.duration < raw_needed:
+                    # Clip is too short even for the raw pre-speed window.
+                    # Loop it to fill raw_needed, then speed up.
+                    clip = vfx.Loop(duration=raw_needed).apply(clip)
+                    clip = clip.subclipped(0, raw_needed)
                 else:
-                    end = min(best_start + img_duration, clip.duration)
+                    end = min(best_start + raw_needed, clip.duration)
                     clip = clip.subclipped(best_start, end)
 
-                if grade:
+                # Speed up → result is exactly img_duration (raw_needed / 1.15)
+                clip = clip.with_speed_scaled(1.15)
 
+                # Safety clamp: float rounding can leave a few ms over/under
+                if clip.duration > img_duration + 0.05:
+                    clip = clip.subclipped(0, img_duration)
+                elif clip.duration < img_duration - 0.05:
+                    # Still slightly short after scaling: loop to fill
+                    clip = vfx.Loop(duration=img_duration).apply(clip)
+                    clip = clip.subclipped(0, img_duration)
+
+                if grade:
                     def grade_video_frame(get_frame, t):
                         return np.array(
                             self._apply_color_grade(
                                 Image.fromarray(get_frame(t)), grade
                             )
                         )
-
                     clip = clip.transform(grade_video_frame, apply_to="video")
 
                 clip = clip.resized(height=1920)
@@ -535,6 +637,7 @@ class VideoAssembler:
                 return clip
 
             else:
+                # ── Static image path ──
                 clip = ImageClip(path).with_duration(img_duration)
                 clip = clip.resized(height=1920)
                 if clip.w < 1080:
@@ -556,6 +659,10 @@ class VideoAssembler:
         except Exception as e:
             print(f"⚠️ Error processing visual {path}: {e}")
             return None
+
+    # ─────────────────────────────────────────────
+    # BASE VIDEO WRITER
+    # ─────────────────────────────────────────────
 
     def _write_base_video(self, scenes, folder, niche):
         niche_style = NICHE_STYLES.get(niche, NICHE_STYLES["default"])
@@ -584,12 +691,23 @@ class VideoAssembler:
                 audio_clip.close()
                 continue
 
-            img_duration = duration / len(visual_paths)
+            # ── Reserve time for transitions so total scene video == audio ──
+            # Each transition between clips adds ~0.2s of extra frames.
+            # Without this, scene video > scene audio → desync/freeze at end.
+            TRANSITION_SECONDS = 0.2  # must match durations dict in _make_transition_frames
+            num_transitions = max(0, len(visual_paths) - 1)
+            usable_duration = duration - (num_transitions * TRANSITION_SECONDS)
+            usable_duration = max(usable_duration, duration * 0.8)  # safety floor
+            img_duration = usable_duration / len(visual_paths)
             scene_clips = []
 
-            for raw_path in visual_paths:
+            # Pass matching keyword per visual so CLIP knows what to look for
+            scene_keywords = scene.get("keywords", [])
+
+            for vi, raw_path in enumerate(visual_paths):
                 path = os.path.normpath(os.path.join(PROJECT_ROOT, raw_path))
-                clip = self._make_clip(path, img_duration, niche_style)
+                keyword = scene_keywords[vi] if vi < len(scene_keywords) else ""
+                clip = self._make_clip(path, img_duration, niche_style, keyword=keyword)
                 if clip is not None:
                     scene_clips.append(clip)
 
@@ -711,14 +829,15 @@ class VideoAssembler:
 
         return base_path, full_audio_path
 
-    def _draw_text_on_video(
-        self, base_path, full_audio_path, out_path, video_title, target_lang
-    ):
-        if target_lang.strip().lower() == "hindi":
-            print("🚫 Hindi detected. Skipping Whisper captions.")
-            shutil.copy(base_path, out_path)
-            return
+    # ─────────────────────────────────────────────
+    # CAPTION BURN-IN (English only, no Hindi skip)
+    # ─────────────────────────────────────────────
 
+    def _draw_text_on_video(self, base_path, full_audio_path, out_path, video_title):
+        """
+        Whisper transcribes the audio and burns word-by-word captions
+        directly into the video frames. English only — Hindi skip removed.
+        """
         self._load_whisper()
         print("📝 Processing audio for English captions...")
         result = self.model.transcribe(
@@ -816,6 +935,10 @@ class VideoAssembler:
             pass
         gc.collect()
 
+    # ─────────────────────────────────────────────
+    # MAIN ENTRY POINT
+    # ─────────────────────────────────────────────
+
     def assemble(self):
         task = self.db.collection.find_one({"status": "ready_to_assemble"})
         if not task:
@@ -823,23 +946,27 @@ class VideoAssembler:
 
         scenes = task.get("script_data", [])
         folder = os.path.normpath(os.path.join(PROJECT_ROOT, task["folder_path"]))
-        target_lang = task.get("target_language", "English")
         video_title = task.get("title", "Breaking News").upper()
         niche = task.get("niche", "default").lower()
         os.makedirs(folder, exist_ok=True)
 
         print(f"🎞️ Assembling {len(scenes)} scenes | niche: '{niche}'")
 
+        # Load CLIP once for the whole assembly job
+        self._load_clip()
+
         base_path, full_audio_path = self._write_base_video(scenes, folder, niche)
+
+        # Free CLIP RAM before loading Whisper — both models must not overlap
+        self._unload_clip()
+
         if not base_path:
             return
 
         out_path = os.path.join(folder, "FINAL_VIDEO.mp4")
         time.sleep(1)
 
-        self._draw_text_on_video(
-            base_path, full_audio_path, out_path, video_title, target_lang
-        )
+        self._draw_text_on_video(base_path, full_audio_path, out_path, video_title)
 
         for temp in [base_path, full_audio_path]:
             if os.path.exists(temp):
