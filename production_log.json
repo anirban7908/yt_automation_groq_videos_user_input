@@ -524,5 +524,131 @@
         "time_slot": "mid_day",
         "mode": "manual",
         "generated_at": "2026-03-14 14:51:25"
+    },
+    {
+        "video_name": "5 New Snake Species Found!",
+        "youtube_id": "8cGkLK11-Y0",
+        "time_slot": "mid_day",
+        "mode": "automatic",
+        "generated_at": "2026-03-14 15:16:07"
+    },
+    {
+        "video_name": "AI Wars: Pentagon vs Anthropic",
+        "youtube_id": "rR9yEKT4lfQ",
+        "time_slot": "mid_day",
+        "mode": "manual",
+        "generated_at": "2026-03-14 16:08:40"
+    },
+    {
+        "video_name": "Oil Crisis Unfolds!",
+        "youtube_id": "Rl2OLq6WFn4",
+        "time_slot": "4_pm",
+        "mode": "automatic",
+        "generated_at": "2026-03-14 16:38:10"
+    },
+    {
+        "video_name": "Leprosy Gone!",
+        "youtube_id": "4b2p92YIy-o",
+        "time_slot": "4_pm",
+        "mode": "automatic",
+        "generated_at": "2026-03-14 17:07:33"
+    },
+    {
+        "video_name": "Galaxy Collision Found!",
+        "youtube_id": "hxXlKaOgTsI",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-03-14 22:12:17"
+    },
+    {
+        "video_name": "Hidden Danger: Microplastics Are Invading Your Brain!",
+        "youtube_id": "6ddrLNrMS8I",
+        "time_slot": "mid_night",
+        "mode": "automatic",
+        "generated_at": "2026-03-15 01:41:01"
+    },
+    {
+        "video_name": "5 New Snake Species!",
+        "youtube_id": "nmAkKZ_-zqs",
+        "time_slot": "4_pm",
+        "mode": "automatic",
+        "generated_at": "2026-03-20 18:31:22"
+    },
+    {
+        "video_name": "Stock Fees Surge!",
+        "youtube_id": "guka0L9f9Lo",
+        "time_slot": "4_pm",
+        "mode": "automatic",
+        "generated_at": "2026-03-20 20:04:47"
+    },
+    {
+        "video_name": "Cig Butts Pollution!",
+        "youtube_id": "OAbN5-oUr38",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-03-20 21:04:27"
+    },
+    {
+        "video_name": "Cig Butts Pollution!",
+        "youtube_id": "OAbN5-oUr38",
+        "time_slot": "mid_day",
+        "mode": "automatic",
+        "generated_at": "2026-03-27 13:10:53"
+    },
+    {
+        "video_name": "Comet Spin Reversal!",
+        "youtube_id": "OVcI5hGV5_g",
+        "time_slot": "mid_day",
+        "mode": "automatic",
+        "generated_at": "2026-03-27 14:19:32"
+    },
+    {
+        "video_name": "AI Porn Revolution",
+        "youtube_id": "NfIP_kAT9_g",
+        "time_slot": "mid_day",
+        "mode": "automatic",
+        "generated_at": "2026-03-27 14:47:27"
+    },
+    {
+        "video_name": "Diabetes Breakthrough",
+        "youtube_id": "U7DWAi2MoW4",
+        "time_slot": "4_pm",
+        "mode": "automatic",
+        "generated_at": "2026-03-27 17:46:46"
+    },
+    {
+        "video_name": "Market Updates Now",
+        "youtube_id": "ptLZrGIcNOQ",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-03-28 21:34:52"
+    },
+    {
+        "video_name": "Slackbot Revolution",
+        "youtube_id": "IUrXpCfZ_bI",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-03-28 23:27:33"
+    },
+    {
+        "video_name": "Cloning Horror!",
+        "youtube_id": "S5optOdUjeY",
+        "time_slot": "mid_night",
+        "mode": "automatic",
+        "generated_at": "2026-03-29 00:55:09"
+    },
+    {
+        "video_name": "AI Chaos Unleashed!",
+        "youtube_id": "W6ivNZdeU00",
+        "time_slot": "4_pm",
+        "mode": "automatic",
+        "generated_at": "2026-03-29 16:52:43"
+    },
+    {
+        "video_name": "Market Chaos!",
+        "youtube_id": "Hjsajy3_cBI",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-03-29 22:23:17"
     }
 ]

@@ -9,15 +9,15 @@ from groq import Groq
 from core.db_manager import DBManager
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
+from core.ai_core import AIEngine
 
 load_dotenv()
 
 
 class NewsScraper:
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.db = DBManager()
-        self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-        self.model = "llama-3.3-70b-versatile"
+        self.ai = AIEngine()
 
         # ════════════════════════════════════════════════════════
         # 8 TRENDING NICHES — English only
@@ -51,42 +51,42 @@ class NewsScraper:
                 "hashtags": "#AI #ArtificialIntelligence #Cyberpunk #TechNews #FutureTech #Robotics",
                 "voice": "en-US-GuyNeural",
             },
-            "psychology": {
-                "rss_feeds": [
-                    "https://www.sciencedaily.com/rss/mind_brain/psychology.xml",
-                    "https://www.psypost.org/feed/",
-                    "https://neurosciencenews.com/neuroscience-topics/psychology/feed/",
-                    "https://digest.bps.org.uk/feed/",
-                    "https://www.apa.org/news/psycport/psycport.rss",
-                ],
-                "pexels_style": "human",
-                "hashtags": "#Psychology #BodyLanguage #DarkPsychology #MindTricks #Manipulation #MentalHealth",
-                "voice": "en-US-BrianNeural",
-            },
-            "health_wellness": {
-                "rss_feeds": [
-                    "https://www.sciencedaily.com/rss/health_medicine/",
-                    "https://www.medicalnewstoday.com/rss/medicalnewstoday.xml",
-                    "https://www.healthline.com/rss/",
-                    "https://feeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC",
-                    "https://www.who.int/rss-feeds/news-english.xml",
-                ],
-                "pexels_style": "medical",
-                "hashtags": "#Health #Wellness #HealthFacts #MedicalFacts #BodyFacts #HealthTips",
-                "voice": "en-US-JennyNeural",
-            },
-            "animals_nature": {
-                "rss_feeds": [
-                    "https://www.sciencedaily.com/rss/plants_animals/",
-                    "https://feeds.nationalgeographic.com/ng/News/News_Main",
-                    "https://www.livescience.com/feeds/all",
-                    "https://insider.si.edu/category/animals/feed/",
-                    "https://www.earth.com/feed/",
-                ],
-                "pexels_style": "wildlife",
-                "hashtags": "#Animals #Wildlife #Nature #WildAnimals #AnimalFacts #NatureFacts",
-                "voice": "en-AU-WilliamNeural",
-            },
+            # "psychology": {
+            #     "rss_feeds": [
+            #         "https://www.sciencedaily.com/rss/mind_brain/psychology.xml",
+            #         "https://www.psypost.org/feed/",
+            #         "https://neurosciencenews.com/neuroscience-topics/psychology/feed/",
+            #         "https://digest.bps.org.uk/feed/",
+            #         "https://www.apa.org/news/psycport/psycport.rss",
+            #     ],
+            #     "pexels_style": "human",
+            #     "hashtags": "#Psychology #BodyLanguage #DarkPsychology #MindTricks #Manipulation #MentalHealth",
+            #     "voice": "en-US-BrianNeural",
+            # },
+            # "health_wellness": {
+            #     "rss_feeds": [
+            #         "https://www.sciencedaily.com/rss/health_medicine/",
+            #         "https://www.medicalnewstoday.com/rss/medicalnewstoday.xml",
+            #         "https://www.healthline.com/rss/",
+            #         "https://feeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC",
+            #         "https://www.who.int/rss-feeds/news-english.xml",
+            #     ],
+            #     "pexels_style": "medical",
+            #     "hashtags": "#Health #Wellness #HealthFacts #MedicalFacts #BodyFacts #HealthTips",
+            #     "voice": "en-US-JennyNeural",
+            # },
+            # "animals_nature": {
+            #     "rss_feeds": [
+            #         "https://www.sciencedaily.com/rss/plants_animals/",
+            #         "https://feeds.nationalgeographic.com/ng/News/News_Main",
+            #         "https://www.livescience.com/feeds/all",
+            #         "https://insider.si.edu/category/animals/feed/",
+            #         "https://www.earth.com/feed/",
+            #     ],
+            #     "pexels_style": "wildlife",
+            #     "hashtags": "#Animals #Wildlife #Nature #WildAnimals #AnimalFacts #NatureFacts",
+            #     "voice": "en-AU-WilliamNeural",
+            # },
             "finance_economy": {
                 "rss_feeds": [
                     "https://feeds.reuters.com/reuters/businessNews",
@@ -189,20 +189,12 @@ class NewsScraper:
             Example: {{"picks": [{{"index": 5, "hook": "Nobody knows this WW2 secret even existed"}}, {{"index": 2, "hook": "This spider can survive a nuclear blast"}}, {{"index": 9, "hook": "The real reason Rome fell in one night"}}]}}
         """
         try:
-            chat_completion = self.client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You output ONLY valid JSON dictionaries.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                model=self.model,
-                response_format={"type": "json_object"},
+            response_text = self.ai.generate(
+                system_prompt="You output ONLY valid JSON dictionaries.",
+                user_prompt=prompt,
+                require_json=True,
             )
-            response_data = json.loads(
-                chat_completion.choices[0].message.content.strip()
-            )
+            response_data = json.loads(response_text.strip())
             picks = response_data.get("picks", [])
 
             results = []
@@ -302,17 +294,12 @@ class NewsScraper:
             OUTPUT: Plain text article only. No JSON, no bullet points, no headers.
         """
         try:
-            chat_completion = self.client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a factual research writer. Output plain text only.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                model=self.model,
+            response_text = self.ai.generate(
+                system_prompt="You are a factual research writer. Output plain text only.",
+                user_prompt=prompt,
+                require_json=False,
             )
-            return chat_completion.choices[0].message.content.strip()
+            return response_text.strip()
         except Exception as e:
             print(f"      ❌ Idea refinement failed: {e}")
             return content  # Fall back to original if AI fails

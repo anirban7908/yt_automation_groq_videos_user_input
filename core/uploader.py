@@ -18,15 +18,21 @@ class YouTubeUploader:
         self.token_file = "token.pickle"
         self.youtube = self.get_authenticated_service()
 
-        # 🟢 NEW: Map your 'niche' to YouTube Category IDs
+        # YouTube Category IDs — mapped to all 7 active niches
         # Reference: https://gist.github.com/dgp/1b24bf2961521bd75d6c
         self.CATEGORY_MAP = {
-            "motivation": "22",  # People & Blogs (Best for lifestyle/motivation)
-            "tech": "28",  # Science & Technology
+            # ── Active niches ──────────────────────────────────────────
             "space": "28",  # Science & Technology
-            "nature": "15",  # Pets & Animals (Best for wildlife/nature)
-            "history": "27",  # Education (Best for history/facts)
-            "general": "24",  # Entertainment (Fallback)
+            "tech_ai": "28",  # Science & Technology
+            "psychology": "27",  # Education
+            "health_wellness": "26",  # Howto & Style (closest for health)
+            "animals_nature": "15",  # Pets & Animals
+            "finance_economy": "22",  # People & Blogs (best for finance)
+            "bizarre_facts": "27",  # Education
+            "history_world": "27",  # Education
+            # ── Legacy / fallback ──────────────────────────────────────
+            "motivation": "22",  # People & Blogs
+            "general": "24",  # Entertainment (fallback)
         }
 
     def get_authenticated_service(self):
@@ -71,8 +77,17 @@ class YouTubeUploader:
 
         print(f"   🏷️ Niche: {niche} -> YouTube Category ID: {category_id}")
 
-        # 🟢 SANITIZE DESCRIPTION
-        raw_description = f"{task['ai_description'][:4000]}\n\n#Shorts\n\nSource: {task.get('source_url', '')}"
+        # 🟢 SANITIZE DESCRIPTION — include all AI-generated hashtags
+        ai_hashtags = task.get("ai_hashtags", "#Shorts").strip()
+        # Ensure #Shorts is always present (required for YouTube Shorts)
+        if "#Shorts" not in ai_hashtags:
+            ai_hashtags = "#Shorts " + ai_hashtags
+        source_url = task.get("source_url", "")
+        raw_description = (
+            f"{task['ai_description'][:3800]}\n\n"
+            f"Source: {source_url}\n\n"
+            f"{ai_hashtags}"
+        )
         clean_description = raw_description.replace("<", "").replace(">", "")
 
         request_body = {
@@ -80,7 +95,10 @@ class YouTubeUploader:
                 "categoryId": category_id,
                 "title": task["title"][:100],
                 "description": clean_description,
-                "tags": task.get("tags", "").split(",") + ["Shorts", niche],
+                "tags": [
+                    t.strip() for t in task.get("ai_tags", "").split(",") if t.strip()
+                ]
+                + ["Shorts", niche],
             },
             "status": {"privacyStatus": "private", "selfDeclaredMadeForKids": False},
         }

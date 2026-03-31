@@ -752,7 +752,9 @@ def run_automatic_pipeline(slot_name):
 
     # Format the datetime object into a string in "YYYY-MM-DD HH:MM:SS" format
     formatted_start_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
-    print(f"\n🤖 AUTOMATIC PIPELINE STARTING: {slot_name.upper()} at {formatted_start_time}.")
+    print(
+        f"\n🤖 AUTOMATIC PIPELINE STARTING: {slot_name.upper()} at {formatted_start_time}."
+    )
 
     db = DBManager()
     scraper = NewsScraper()

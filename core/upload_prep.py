@@ -33,9 +33,17 @@ class UploadManager:
         meta_path = os.path.join(folder, filename)
         description = task.get("ai_description", "Subscribe for more!")
         hashtags = task.get("ai_hashtags", "#Shorts")
+        # Ensure #Shorts is always present
+        if "#Shorts" not in hashtags:
+            hashtags = "#Shorts " + hashtags
         tags = task.get("ai_tags", "shorts, video")
         source_url = task.get("source_url", "https://news.google.com")
-        # 🟢 NEW: Pretty Format with Emojis
+
+        # Full description as it will appear on YouTube
+        full_description = (
+            f"{description}\n\n" f"Source: {source_url}\n\n" f"{hashtags}"
+        )
+
         seo_content = f"""
             ===================================================
             🚀 YOUTUBE UPLOAD METADATA
@@ -44,16 +52,10 @@ class UploadManager:
             📌 TITLE (Optimized for Clicks):
             {task.get('title')}
 
-            📝 DESCRIPTION:
-            {description}
-
-            👇 Read the full story here:
-            {source_url}
+            📝 DESCRIPTION (as it will appear on YouTube):
+            {full_description}
 
             ---------------------------------------------------
-            🔥 HASHTAGS (Copy & Paste):
-            {hashtags}
-
             🏷️ TAGS (For SEO Box):
             {tags}
             ---------------------------------------------------

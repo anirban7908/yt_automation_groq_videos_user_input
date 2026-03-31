@@ -2,6 +2,7 @@ import json
 import re
 import os
 from groq import Groq
+from core.ai_core import AIEngine
 from core.db_manager import DBManager
 from dotenv import load_dotenv
 
@@ -9,10 +10,9 @@ load_dotenv()
 
 
 class ScriptGenerator:
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.db = DBManager()
-        self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-        self.model = "llama-3.3-70b-versatile"
+        self.ai = AIEngine()
 
     def get_expert_role(self, niche):
         role_map = {
@@ -43,10 +43,10 @@ class ScriptGenerator:
         if not (6 <= len(scenes) <= 8):
             return False, f"Wrong scene count: {len(scenes)} (expected 6-8)"
 
-        BANNED = {
+        BANNED_EXACT = {
             "nazi",
             "hitler",
-            "subscribe button",
+            # "subscribe button",
             "like button",
             "comment button",
             "female portrait",
@@ -61,24 +61,55 @@ class ScriptGenerator:
             "texture",
         }
 
+        # These words anywhere in a keyword = invalid (non-filmable CGI/design terms)
+        BANNED_CONTAINS = {
+            "animated",
+            "animation",
+            "infographic",
+            "diagram",
+            "3d",
+            "illustration",
+            "visualization",
+            "render",
+        }
+
         for i, scene in enumerate(scenes):
             if not scene.get("text"):
                 return False, f"Scene {i} missing text"
             if not scene.get("keywords") or not isinstance(scene["keywords"], list):
                 return False, f"Scene {i} missing keywords"
-            if scene.get("image_count", 0) not in [1, 2, 3]:
+
+            count = scene.get("image_count", 0)
+
+            # 🟢 Allow up to 4 images for faster pacing
+            if count not in [1, 2, 3, 4]:
+                return False, f"Scene {i} has invalid image_count: {count}"
+
+            if len(scene["keywords"]) != count:
                 return (
                     False,
-                    f"Scene {i} has invalid image_count: {scene.get('image_count')}",
+                    f"Scene {i}: keywords count ({len(scene['keywords'])}) doesn't match image_count ({count})",
                 )
-            if len(scene["keywords"]) != scene["image_count"]:
+
+            # 🟢 NEW: Validate trigger words
+            trigger_words = scene.get("trigger_words", [])
+            if len(trigger_words) != count:
                 return (
                     False,
-                    f"Scene {i}: keywords count ({len(scene['keywords'])}) doesn't match image_count ({scene.get('image_count')})",
+                    f"Scene {i}: trigger_words count ({len(trigger_words)}) doesn't match image_count ({count})",
                 )
+
+            # (Keep your existing BANNED_EXACT logic below this)
             for kw in scene["keywords"]:
-                if kw.strip().lower() in BANNED:
+                kw_lower = kw.strip().lower()
+                if kw_lower in BANNED_EXACT:
                     return False, f"Scene {i} contains banned keyword: '{kw}'"
+                for banned_word in BANNED_CONTAINS:
+                    if banned_word in kw_lower:
+                        return (
+                            False,
+                            f"Scene {i} contains non-filmable term '{banned_word}' in keyword: '{kw}'",
+                        )
 
         return True, "OK"
 
@@ -116,64 +147,68 @@ class ScriptGenerator:
             """
 
         try:
-            chat_completion = self.client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": f"You are {sys_prompt}. Write ONLY the numbered scene list. No JSON, no extra commentary.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                model=self.model,
+            response = self.ai.generate(
+                system_prompt=f"You are {sys_prompt}. Write ONLY the numbered scene list. No JSON, no extra commentary.",
+                user_prompt=prompt,
+                require_json=False,
             )
-            return chat_completion.choices[0].message.content.strip()
+            return response.strip()
         except Exception as e:
             print(f"❌ Narration Error: {e}")
             return None
 
     def generate_packaging(
-        self, narration_text, core_subject, niche, pre_hashtags, pexels_style
+        self,
+        narration_text,
+        core_subject,
+        niche,
+        pre_hashtags,
+        pexels_style,
+        feedback="",
     ):
         """
         Takes finished narration text and generates JSON with visual keywords + metadata.
+        Optional feedback param passes user notes directly into the keyword generation too.
         """
         print(f"📦 Packaging Agent: Generating keywords and metadata...")
+
+        feedback_section = (
+            f"\n\n            USER FEEDBACK TO APPLY TO KEYWORDS AND METADATA:\n            {feedback}"
+            if feedback
+            else ""
+        )
 
         prompt = f"""
             TASK: You are a stock footage coordinator and SEO expert. Given the finished script scenes below, output a JSON object with visual keywords and metadata.
 
             FINISHED SCRIPT:
             {narration_text}
+            {feedback_section}
 
             KEYWORD RULES:
-            - Every keyword must be 1-3 plain English nouns that describe a PHYSICAL, FILMABLE object or place.
-            - Core subject anchor: "{core_subject}". At least one keyword per scene must physically relate to this.
-            - Niche: "{niche}". Style keywords according to the pexels_style guide below.
-            - NEVER use: "graphs", "charts", "news", "newspaper", "county", "area", "place", "energy" (too abstract).
-            - STRICT NO DUPLICATE RULE: Scan ALL keywords across ALL scenes before finalizing. If a phrase appears more than once, replace the duplicate with a visually distinct alternative.
-            - VISUAL SPECIFICITY RULE: Each keyword must be specific enough that a photographer would know exactly what to film. BAD: "Energy", "Equipment", "Area". GOOD: "Oil Derrick", "Steel Pipeline", "Gas Pump".
-            - LOCATION RULE: If the story is about a specific country or region, at least 2 keywords across the script must reflect the location visually.
-            - SCENE VARIETY RULE: Consecutive scenes must NOT share similar keywords. Alternate between close-up subjects and wide environment shots.
-            - image_count rule: count the words in each scene's narration text.
-                - Under 10 words = image_count: 1, exactly 1 keyword
-                - 10-18 words = image_count: 2, exactly 2 keywords
-                - 18+ words = image_count: 3, exactly 3 keywords
+            - Every keyword must describe ONE single REAL, PHYSICAL, FILMABLE subject that actually exists in stock footage libraries.
+            - Keywords must be 2-4 words MAX. Format: [subject] + ONE cinematic modifier (lighting OR angle OR setting).
+            - STRICT NO DUPLICATE RULE: Scan ALL keywords across ALL scenes. Replace duplicates.
+            - 🔴 NO MICROSCOPIC/INVISIBLE SUBJECTS: You CANNOT film "peptides", "enzymes", "stomach acid", "viruses", or "genes". If the text mentions these, YOU MUST substitute a generic human equivalent (e.g., use "scientist in lab", "doctor hospital", "medicine pill", "medical scan").
+            - 🔴 NO ABSTRACT CONCEPTS: Never use keywords like "complicated equation", "cure", or "breakthrough". Use literal physical objects.
+            - FAST PACING RULE: Change the visual every 1-2 sentences to maintain high retention!
+                - Under 10 words = image_count: 1
+                - 10-18 words = image_count: 2
+                - 18-28 words = image_count: 3
+                - 28+ words = image_count: 4
             - keywords array length MUST equal image_count exactly.
 
-            PEXELS STYLE GUIDE — The pexels_style for this video is: "{pexels_style}"
-            - "historical"   → Period-specific physical objects ONLY. GOOD: "1940s radio microphone", "WW2 submarine interior". BAD: "War Room", "Female Portrait", "propaganda"
-            - "realistic"    → Specific real-world subjects. GOOD: "galaxy nebula", "rocket launch pad"
-            - "futuristic"   → Tangible tech hardware only. GOOD: "server room", "robot arm factory", "circuit board"
-            - "human"        → Person + visible emotion + specific setting. GOOD: "stressed woman office", "elderly man hospital"
-            - "documentary"  → Real physical environments. GOOD: "government building exterior", "military soldier desert"
-            - "medical"      → Specific body part or clinical environment. GOOD: "human heart anatomy", "doctor operating room"
-            - "wildlife"     → Animal species + natural habitat. GOOD: "lion savanna sunset", "eagle mountain flight"
-            - "business"     → Tangible money or finance objects. GOOD: "gold bars vault", "stock market trading floor"
-            - "nature"       → Specific organism or natural phenomenon. GOOD: "volcano eruption lava", "coral reef underwater"
+            TRIGGER WORDS (Perfect Sync Magic):
+            - For each keyword, you MUST provide a "trigger_word" from the text. This is the exact word where the video clip should cut.
+            - The trigger_words array length MUST equal image_count exactly.
+            - The first trigger_word in a scene MUST be the very first word of the scene's text.
+            - The following trigger_words should be the exact noun or verb that relates to the visual.
+            - Example Text: "The megalodon was massive, but it was made of cartilage like your ears."
+            - Example Keywords: ["massive shark underwater", "human ear close up"]
+            - Example Trigger Words: ["The", "cartilage"]
 
-            BANNED KEYWORDS — NEVER use: "Nazi", "Hitler", "Subscribe Button", "Like Button",
-            "Female Portrait", "Male Portrait", "War Room", "Propaganda",
-            "Abstract", "Concept", "Symbol", "Icon", "Background", "Texture"
+            STOCK FOOTAGE REALITY CHECK — style for this video: "{pexels_style}"
+            Ask yourself: "Can I find this exact shot on Pexels or Pixabay right now?" If NO → simplify.
 
             METADATA RULES (all fields strictly in ENGLISH):
             - title: clickbait style, max 50 characters, high curiosity
@@ -190,26 +225,21 @@ class ScriptGenerator:
                 "scenes": [
                     {{
                         "text": "exact scene narration copied here",
-                        "keywords": ["English noun", "English noun"],
+                        "keywords": ["subject cinematic modifier", "subject cinematic modifier"],
+                        "trigger_words": ["FirstWord", "ImpactWord"],
                         "image_count": 2
                     }}
                 ]
             }}
-            """
+        """
 
         try:
-            chat_completion = self.client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You output ONLY valid JSON dictionaries. Copy scene text exactly as given.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                model=self.model,
-                response_format={"type": "json_object"},
+            response = self.ai.generate(
+                system_prompt="You output ONLY valid JSON dictionaries. Copy scene text exactly as given.",
+                user_prompt=prompt,
+                require_json=True,
             )
-            return self.repair_json(chat_completion.choices[0].message.content)
+            return self.repair_json(response)
         except Exception as e:
             print(f"❌ Packaging Error: {e}")
             return None
@@ -235,12 +265,12 @@ class ScriptGenerator:
             }}
         """
         try:
-            chat_completion = self.client.chat.completions.create(
-                messages=[{"role": "user", "content": meta_prompt}],
-                model=self.model,
-                response_format={"type": "json_object"},
+            response = self.ai.generate(
+                system_prompt="You output ONLY valid JSON dictionaries.",
+                user_prompt=meta_prompt,
+                require_json=True,
             )
-            return self.repair_json(chat_completion.choices[0].message.content)
+            return self.repair_json(response)
         except Exception as e:
             print(f"❌ Meta-Prompting Error: {e}")
             return {
@@ -268,7 +298,7 @@ class ScriptGenerator:
         pre_hashtags = task.get("hashtags", "#Shorts #Viral")
         pexels_style = task.get("pexels_style", "realistic")
 
-        print(f"🧠 Groq Director: Segmenting {niche.upper()} story...")
+        print(f"🧠 AI Director: Segmenting {niche.upper()} story...")
 
         narration_text = self.generate_narration(
             sys_prompt, expert_role, source, niche, feedback
@@ -278,7 +308,7 @@ class ScriptGenerator:
         print(f"✅ Narration complete. Sending to packaging agent...")
 
         data = self.generate_packaging(
-            narration_text, core_subject, niche, pre_hashtags, pexels_style
+            narration_text, core_subject, niche, pre_hashtags, pexels_style, feedback
         )
         if not data:
             raise ValueError("Packaging generation failed")
