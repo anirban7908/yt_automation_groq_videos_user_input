@@ -134,7 +134,7 @@ def _prompt(prompt_text, timeout=PROMPT_TIMEOUT, default=""):
 
         return result[0].strip()
 
-    # ── Unix implementation ─────────────────────────────────
+        # ── Unix implementation ─────────────────────────────────
     else:
         import select
         import termios
@@ -207,7 +207,7 @@ def _ask_mode():
     print("    [A]  Automatic — Fully hands-free, end to end")
     print(f"\n  Default: Automatic (after {MODE_TIMEOUT} seconds)\n")
 
-    choice = _timed_input("   → ", timeout=MODE_TIMEOUT, default="A").upper()
+    choice = _timed_input("→ ", timeout=MODE_TIMEOUT, default="A").upper()
 
     if choice in ("M", "MANUAL"):
         print("\n🛠️  Manual mode selected. You're in control!\n")

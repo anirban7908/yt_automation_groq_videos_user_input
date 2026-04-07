@@ -51,7 +51,7 @@ class ScriptGenerator:
             "comment button",
             "female portrait",
             "male portrait",
-            "war room",
+            # "war room",
             "propaganda",
             "abstract",
             "concept",

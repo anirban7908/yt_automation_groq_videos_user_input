@@ -26,6 +26,17 @@ class NewsScraper:
         # hi_voice removed — pipeline is now English-only.
         # ════════════════════════════════════════════════════════
         self.MASTER_NICHES = {
+            "war_news": {
+                "rss_feeds": [
+                    "https://www.aljazeera.com/xml/rss/all.xml",
+                    "https://www.defensenews.com/arc/outboundfeeds/rss/",
+                    "https://www.defenseone.com/rss/all/",
+                    "https://warontherocks.com/feed/",
+                ],
+                "pexels_style": "documentary",
+                "hashtags": "#WarNews #GlobalConflict #Military #BreakingNews #Geopolitics",
+                "voice": "en-US-ChristopherNeural",
+            },
             "space": {
                 "rss_feeds": [
                     "https://www.space.com/feeds/all",
@@ -51,18 +62,18 @@ class NewsScraper:
                 "hashtags": "#AI #ArtificialIntelligence #Cyberpunk #TechNews #FutureTech #Robotics",
                 "voice": "en-US-GuyNeural",
             },
-            # "psychology": {
-            #     "rss_feeds": [
-            #         "https://www.sciencedaily.com/rss/mind_brain/psychology.xml",
-            #         "https://www.psypost.org/feed/",
-            #         "https://neurosciencenews.com/neuroscience-topics/psychology/feed/",
-            #         "https://digest.bps.org.uk/feed/",
-            #         "https://www.apa.org/news/psycport/psycport.rss",
-            #     ],
-            #     "pexels_style": "human",
-            #     "hashtags": "#Psychology #BodyLanguage #DarkPsychology #MindTricks #Manipulation #MentalHealth",
-            #     "voice": "en-US-BrianNeural",
-            # },
+            "psychology": {
+                "rss_feeds": [
+                    "https://www.sciencedaily.com/rss/mind_brain/psychology.xml",
+                    "https://www.psypost.org/feed/",
+                    "https://neurosciencenews.com/neuroscience-topics/psychology/feed/",
+                    "https://digest.bps.org.uk/feed/",
+                    "https://www.apa.org/news/psycport/psycport.rss",
+                ],
+                "pexels_style": "human",
+                "hashtags": "#Psychology #BodyLanguage #DarkPsychology #MindTricks #Manipulation #MentalHealth",
+                "voice": "en-US-BrianNeural",
+            },
             # "health_wellness": {
             #     "rss_feeds": [
             #         "https://www.sciencedaily.com/rss/health_medicine/",
@@ -99,18 +110,18 @@ class NewsScraper:
                 "hashtags": "#Finance #Economy #MoneyFacts #StockMarket #Investment #FinanceFacts",
                 "voice": "en-US-GuyNeural",
             },
-            "bizarre_facts": {
-                "rss_feeds": [
-                    "https://www.zmescience.com/feed/",
-                    "https://www.atlasobscura.com/feeds/latest",
-                    "https://www.mentalfloss.com/rss.xml",
-                    "https://www.livescience.com/feeds/all",
-                    "https://www.odditycentral.com/feed",
-                ],
-                "pexels_style": "nature",
-                "hashtags": "#BizarreFacts #WeirdFacts #DidYouKnow #MindBlowing #StrangeFacts #Shocking",
-                "voice": "en-US-ChristopherNeural",
-            },
+            # "bizarre_facts": {
+            #     "rss_feeds": [
+            #         "https://www.zmescience.com/feed/",
+            #         "https://www.atlasobscura.com/feeds/latest",
+            #         "https://www.mentalfloss.com/rss.xml",
+            #         "https://www.livescience.com/feeds/all",
+            #         "https://www.odditycentral.com/feed",
+            #     ],
+            #     "pexels_style": "nature",
+            #     "hashtags": "#BizarreFacts #WeirdFacts #DidYouKnow #MindBlowing #StrangeFacts #Shocking",
+            #     "voice": "en-US-ChristopherNeural",
+            # },
         }
 
     # ─────────────────────────────────────────────

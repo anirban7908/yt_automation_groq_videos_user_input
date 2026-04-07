@@ -650,5 +650,68 @@
         "time_slot": "8_pm",
         "mode": "automatic",
         "generated_at": "2026-03-29 22:23:17"
+    },
+    {
+        "video_name": "Universe Split!",
+        "youtube_id": "3gx3pkoNheA",
+        "time_slot": "4_pm",
+        "mode": "automatic",
+        "generated_at": "2026-04-02 17:12:41"
+    },
+    {
+        "video_name": "US Launches 850 Missiles!",
+        "youtube_id": "HJTnSL0NUMw",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-04-02 21:42:51"
+    },
+    {
+        "video_name": "Ukraine's Secret Drone War",
+        "youtube_id": "790ZptONP8A",
+        "time_slot": "mid_night",
+        "mode": "automatic",
+        "generated_at": "2026-04-05 00:56:44"
+    },
+    {
+        "video_name": "Norway Fish Frenzy!",
+        "youtube_id": "p_33Y1m_yQs",
+        "time_slot": "mid_day",
+        "mode": "automatic",
+        "generated_at": "2026-04-05 15:27:23"
+    },
+    {
+        "video_name": "Markets Moving Fast!",
+        "youtube_id": "0UqyMv809Do",
+        "time_slot": "mid_day",
+        "mode": "automatic",
+        "generated_at": "2026-04-05 16:06:25"
+    },
+    {
+        "video_name": "Galaxies Defy Rules!",
+        "youtube_id": "Qwyhvy5uFcg",
+        "time_slot": "8_am",
+        "mode": "automatic",
+        "generated_at": "2026-04-06 11:47:14"
+    },
+    {
+        "video_name": "Russia Under Attack",
+        "youtube_id": "-UIcl8GaM1Y",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-04-06 21:26:32"
+    },
+    {
+        "video_name": "NASA Artemis II Record!",
+        "youtube_id": "8dsaWs-ao4Q",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-04-07 00:10:50"
+    },
+    {
+        "video_name": "Cosmic Breakthrough!",
+        "youtube_id": "IXcI55ZKlAE",
+        "time_slot": "mid_night",
+        "mode": "automatic",
+        "generated_at": "2026-04-07 01:02:39"
     }
 ]
