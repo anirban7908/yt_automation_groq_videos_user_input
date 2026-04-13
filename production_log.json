@@ -713,5 +713,110 @@
         "time_slot": "mid_night",
         "mode": "automatic",
         "generated_at": "2026-04-07 01:02:39"
+    },
+    {
+        "video_name": "Hackers Strike!",
+        "youtube_id": "1pkQ9Z9V-bg",
+        "time_slot": "8_am",
+        "mode": "automatic",
+        "generated_at": "2026-04-07 10:28:33"
+    },
+    {
+        "video_name": "Market Alert!",
+        "youtube_id": "AWuf8foQTG0",
+        "time_slot": "8_am",
+        "mode": "automatic",
+        "generated_at": "2026-04-07 10:50:44"
+    },
+    {
+        "video_name": "Unlock Brain Secrets!",
+        "youtube_id": "TNHgGXD5xJs",
+        "time_slot": "8_am",
+        "mode": "automatic",
+        "generated_at": "2026-04-07 11:25:10"
+    },
+    {
+        "video_name": "Arm Shares Soar!",
+        "youtube_id": "jCWHRrzGVZ0",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-04-07 23:47:46"
+    },
+    {
+        "video_name": "Satellite Constellation",
+        "youtube_id": "_Q3ECU0tkFk",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-04-09 22:20:01"
+    },
+    {
+        "video_name": "Space Revolution!",
+        "youtube_id": "irutVQahJGM",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-04-09 23:17:26"
+    },
+    {
+        "video_name": "Terraforming Mars Revealed",
+        "youtube_id": "ec0y_0so4QE",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-04-09 23:41:12"
+    },
+    {
+        "video_name": "Antimatter Breakthrough!",
+        "youtube_id": "ITdcQ4788wA",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-04-10 00:04:46"
+    },
+    {
+        "video_name": "Nature's Defense",
+        "youtube_id": "QVHaHJi7VIY",
+        "time_slot": "mid_night",
+        "mode": "automatic",
+        "generated_at": "2026-04-10 00:22:36"
+    },
+    {
+        "video_name": "Britain's Secret Mission",
+        "youtube_id": "3nvU0CgHLUc",
+        "time_slot": "mid_night",
+        "mode": "automatic",
+        "generated_at": "2026-04-10 01:01:06"
+    },
+    {
+        "video_name": "Israel Airstrikes Devastate Beirut",
+        "youtube_id": "8twhfmzIoqQ",
+        "time_slot": "mid_night",
+        "mode": "automatic",
+        "generated_at": "2026-04-10 01:36:18"
+    },
+    {
+        "video_name": "Flesh Eating Fly",
+        "youtube_id": "tJp__ZlZBVU",
+        "time_slot": "4_pm",
+        "mode": "automatic",
+        "generated_at": "2026-04-10 19:00:36"
+    },
+    {
+        "video_name": "US vs Iran Air War",
+        "youtube_id": "ovLmwwvORI0",
+        "time_slot": "8_am",
+        "mode": "automatic",
+        "generated_at": "2026-04-11 10:09:06"
+    },
+    {
+        "video_name": "Zuckerberg's AI Clone",
+        "youtube_id": "r1iiJLuBcSc",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-04-13 22:05:13"
+    },
+    {
+        "video_name": "Asteroid Alert!",
+        "youtube_id": "NSF1qBaioHY",
+        "time_slot": "8_pm",
+        "mode": "automatic",
+        "generated_at": "2026-04-13 23:12:40"
     }
 ]

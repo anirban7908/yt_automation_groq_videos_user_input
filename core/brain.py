@@ -5,6 +5,8 @@ from groq import Groq
 from core.ai_core import AIEngine
 from core.db_manager import DBManager
 from dotenv import load_dotenv
+import time
+import random
 
 load_dotenv()
 
@@ -47,7 +49,7 @@ class ScriptGenerator:
             "nazi",
             "hitler",
             # "subscribe button",
-            "like button",
+            # "like button",
             "comment button",
             "female portrait",
             "male portrait",
@@ -118,6 +120,20 @@ class ScriptGenerator:
         Generates the spoken voiceover script — English only, 90-110 seconds, 6-8 scenes.
         Optional feedback param used when user requests a script regeneration with notes.
         """
+
+        hooks_list = [
+            "Stop scrolling...",
+            "What if I told you...",
+            "Big news...",
+            "You won't believe this, but...",
+            "We need to talk about what just happened...",
+            "Nobody is talking about this, but...",
+            "If you skip this, you'll miss out...",
+            "Wait, did this actually just happen?",
+            "Drop everything and listen to this...",
+        ]
+
+        chosen_hook = random.choice(hooks_list)
         print(f"✍️ Narration Writer: Crafting English script...")
 
         feedback_section = (
@@ -132,7 +148,7 @@ class ScriptGenerator:
             SOURCE: "{source}"{feedback_section}
 
             RULES:
-            1. HOOK: Scene 1 MUST open with a pattern-interrupt like "Stop scrolling...", "What if I told you...", or a bold shocking claim. No generic questions.
+            1. HOOK: Scene 1 MUST open with a pattern-interrupt like "{chosen_hook}", or a bold shocking claim. No generic questions.
             2. TONE: Write the way people actually speak. Short punchy sentences. Use (..., —, !, ?) for voiceover rhythm and suspense. You may use words like "terrifying", "bizarre", "breakthrough" but NEVER invent or exaggerate facts.
             3. FACTS ONLY: No personal stories, no "I" statements, no motivational fluff. Facts, science, history, news only.
             4. LANGUAGE: Write entirely in ENGLISH. Use simple conversational language, NOT formal or academic.
@@ -166,10 +182,6 @@ class ScriptGenerator:
         pexels_style,
         feedback="",
     ):
-        """
-        Takes finished narration text and generates JSON with visual keywords + metadata.
-        Optional feedback param passes user notes directly into the keyword generation too.
-        """
         print(f"📦 Packaging Agent: Generating keywords and metadata...")
 
         feedback_section = (
@@ -186,35 +198,23 @@ class ScriptGenerator:
             {feedback_section}
 
             KEYWORD RULES:
-            - Every keyword must describe ONE single REAL, PHYSICAL, FILMABLE subject that actually exists in stock footage libraries.
-            - Keywords must be 2-4 words MAX. Format: [subject] + ONE cinematic modifier (lighting OR angle OR setting).
+            - Every keyword must describe ONE single REAL, PHYSICAL, FILMABLE subject.
+            - Keywords must be 2-4 words MAX. Format: [subject] + ONE cinematic modifier.
             - STRICT NO DUPLICATE RULE: Scan ALL keywords across ALL scenes. Replace duplicates.
-            - 🔴 NO MICROSCOPIC/INVISIBLE SUBJECTS: You CANNOT film "peptides", "enzymes", "stomach acid", "viruses", or "genes". If the text mentions these, YOU MUST substitute a generic human equivalent (e.g., use "scientist in lab", "doctor hospital", "medicine pill", "medical scan").
-            - 🔴 NO ABSTRACT CONCEPTS: Never use keywords like "complicated equation", "cure", or "breakthrough". Use literal physical objects.
-            - FAST PACING RULE: Change the visual every 1-2 sentences to maintain high retention!
-                - Under 10 words = image_count: 1
-                - 10-18 words = image_count: 2
-                - 18-28 words = image_count: 3
-                - 28+ words = image_count: 4
-            - keywords array length MUST equal image_count exactly.
+            - 🔴 NO MICROSCOPIC/INVISIBLE SUBJECTS: Substitute a generic human equivalent.
+            - 🔴 NO ABSTRACT CONCEPTS: Use literal physical objects.
+            - FAST PACING RULE: Determine image_count based on sentence length (1 to 4).
+            - 🛑 CRITICAL MATH RULE: The number of items in the 'keywords' array and the 'trigger_words' array MUST EXACTLY EQUAL the 'image_count' integer. If image_count is 2, you MUST provide 2 keywords and 2 trigger_words.
 
             TRIGGER WORDS (Perfect Sync Magic):
-            - For each keyword, you MUST provide a "trigger_word" from the text. This is the exact word where the video clip should cut.
-            - The trigger_words array length MUST equal image_count exactly.
-            - The first trigger_word in a scene MUST be the very first word of the scene's text.
-            - The following trigger_words should be the exact noun or verb that relates to the visual.
-            - Example Text: "The megalodon was massive, but it was made of cartilage like your ears."
-            - Example Keywords: ["massive shark underwater", "human ear close up"]
-            - Example Trigger Words: ["The", "cartilage"]
+            - First trigger_word in a scene MUST be the very first word of the scene's text.
+            - Following trigger_words should be the exact noun or verb where the visual cuts.
 
-            STOCK FOOTAGE REALITY CHECK — style for this video: "{pexels_style}"
-            Ask yourself: "Can I find this exact shot on Pexels or Pixabay right now?" If NO → simplify.
-
-            METADATA RULES (all fields strictly in ENGLISH):
-            - title: clickbait style, max 50 characters, high curiosity
-            - description: 3 sentences summarizing the video + call to action
-            - hashtags: use these exactly: {pre_hashtags}, then add 5 more specific ones
-            - tags: array of 10-15 highly searched SEO keywords
+            METADATA RULES:
+            - title: clickbait style, max 50 chars.
+            - description: 3 sentences + call to action.
+            - hashtags: use these exactly: {pre_hashtags}, then add 5 specific ones.
+            - tags: array of 10-15 SEO keywords.
 
             OUTPUT ONLY valid JSON:
             {{
@@ -225,9 +225,9 @@ class ScriptGenerator:
                 "scenes": [
                     {{
                         "text": "exact scene narration copied here",
-                        "keywords": ["subject cinematic modifier", "subject cinematic modifier"],
-                        "trigger_words": ["FirstWord", "ImpactWord"],
-                        "image_count": 2
+                        "image_count": 2,
+                        "keywords": ["first subject modifier", "second subject modifier"],
+                        "trigger_words": ["FirstWord", "ImpactWord"]
                     }}
                 ]
             }}
@@ -300,6 +300,7 @@ class ScriptGenerator:
 
         print(f"🧠 AI Director: Segmenting {niche.upper()} story...")
 
+        # 🟢 CALL 1: Narration
         narration_text = self.generate_narration(
             sys_prompt, expert_role, source, niche, feedback
         )
@@ -307,6 +308,11 @@ class ScriptGenerator:
             raise ValueError("Narration generation failed")
         print(f"✅ Narration complete. Sending to packaging agent...")
 
+        # 🟢 ANTI-RATE-LIMIT DELAY (Fixes Groq 429 Errors)
+        print("⏳ Pausing briefly to respect Groq API limits...")
+        time.sleep(3)
+
+        # 🟢 CALL 2: Packaging
         data = self.generate_packaging(
             narration_text, core_subject, niche, pre_hashtags, pexels_style, feedback
         )
@@ -317,7 +323,23 @@ class ScriptGenerator:
         if not is_valid:
             raise ValueError(f"Script validation failed: {reason}")
 
-        print(f"✅ Script validated successfully.")
+        # 🟢 THE FIX: Text Sanitizer for TTS
+        # Strip markdown and leading numbers so the TTS engine reads it naturally
+        for scene in data.get("scenes", []):
+            raw_text = scene.get("text", "")
+
+            # Remove bold/italic markdown asterisks
+            clean_text = raw_text.replace("**", "").replace("*", "")
+
+            # Remove leading numbers (e.g., "1. " or "Scene 1:")
+            clean_text = re.sub(
+                r"^(?:Scene\s*\d+:?\s*|\d+\.\s*)", "", clean_text, flags=re.IGNORECASE
+            ).strip()
+
+            # Reassign the cleaned text back to the scene
+            scene["text"] = clean_text
+
+        print(f"✅ Script validated and text sanitized successfully.")
         return data
 
     def _save_script_to_db(self, task, data):

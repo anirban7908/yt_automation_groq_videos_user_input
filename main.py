@@ -508,8 +508,8 @@ def _run_post_script_steps(task, db, slot_name, is_manual):
         uploader.upload_video()
     except Exception as e:
         print(f"❌ YouTube upload failed: {e}")
-        _delete_task(db, task["_id"], reason=f"Upload error: {e}")
-        _cleanup_task_files(task)
+        # _delete_task(db, task["_id"], reason=f"Upload error: {e}")
+        # _cleanup_task_files(task)
         return False
 
     # ── STEP 8: JSON LOGGING ─────────────────────

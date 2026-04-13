@@ -62,18 +62,18 @@ class NewsScraper:
                 "hashtags": "#AI #ArtificialIntelligence #Cyberpunk #TechNews #FutureTech #Robotics",
                 "voice": "en-US-GuyNeural",
             },
-            "psychology": {
-                "rss_feeds": [
-                    "https://www.sciencedaily.com/rss/mind_brain/psychology.xml",
-                    "https://www.psypost.org/feed/",
-                    "https://neurosciencenews.com/neuroscience-topics/psychology/feed/",
-                    "https://digest.bps.org.uk/feed/",
-                    "https://www.apa.org/news/psycport/psycport.rss",
-                ],
-                "pexels_style": "human",
-                "hashtags": "#Psychology #BodyLanguage #DarkPsychology #MindTricks #Manipulation #MentalHealth",
-                "voice": "en-US-BrianNeural",
-            },
+            # "psychology": {
+            #     "rss_feeds": [
+            #         "https://www.sciencedaily.com/rss/mind_brain/psychology.xml",
+            #         "https://www.psypost.org/feed/",
+            #         "https://neurosciencenews.com/neuroscience-topics/psychology/feed/",
+            #         "https://digest.bps.org.uk/feed/",
+            #         "https://www.apa.org/news/psycport/psycport.rss",
+            #     ],
+            #     "pexels_style": "human",
+            #     "hashtags": "#Psychology #BodyLanguage #DarkPsychology #MindTricks #Manipulation #MentalHealth",
+            #     "voice": "en-US-BrianNeural",
+            # },
             # "health_wellness": {
             #     "rss_feeds": [
             #         "https://www.sciencedaily.com/rss/health_medicine/",
@@ -101,7 +101,6 @@ class NewsScraper:
             "finance_economy": {
                 "rss_feeds": [
                     "https://feeds.reuters.com/reuters/businessNews",
-                    "https://feeds.bloomberg.com/markets/news.rss",
                     "https://www.marketwatch.com/rss/topstories",
                     "https://economictimes.indiatimes.com/rssfeedsdefault.cms",
                     "https://www.businessinsider.com/rss",
@@ -110,18 +109,18 @@ class NewsScraper:
                 "hashtags": "#Finance #Economy #MoneyFacts #StockMarket #Investment #FinanceFacts",
                 "voice": "en-US-GuyNeural",
             },
-            # "bizarre_facts": {
-            #     "rss_feeds": [
-            #         "https://www.zmescience.com/feed/",
-            #         "https://www.atlasobscura.com/feeds/latest",
-            #         "https://www.mentalfloss.com/rss.xml",
-            #         "https://www.livescience.com/feeds/all",
-            #         "https://www.odditycentral.com/feed",
-            #     ],
-            #     "pexels_style": "nature",
-            #     "hashtags": "#BizarreFacts #WeirdFacts #DidYouKnow #MindBlowing #StrangeFacts #Shocking",
-            #     "voice": "en-US-ChristopherNeural",
-            # },
+            "bizarre_facts": {
+                "rss_feeds": [
+                    "https://www.zmescience.com/feed/",
+                    "https://www.atlasobscura.com/feeds/latest",
+                    "https://www.mentalfloss.com/rss.xml",
+                    "https://www.livescience.com/feeds/all",
+                    "https://www.odditycentral.com/feed",
+                ],
+                "pexels_style": "nature",
+                "hashtags": "#BizarreFacts #WeirdFacts #DidYouKnow #MindBlowing #StrangeFacts #Shocking",
+                "voice": "en-US-ChristopherNeural",
+            },
         }
 
     # ─────────────────────────────────────────────
@@ -249,21 +248,21 @@ class NewsScraper:
         """Visits the webpage and extracts paragraph text bypassing anti-bot walls."""
         print(f"      📖 Deep Reading full article from: {url}")
         try:
-            import cloudscraper
+            reader_url = f"https://r.jina.ai/{url}"
+            headers = {"Accept": "text/plain", "X-Return-Format": "markdown"}
+            res = requests.get(reader_url, headers=headers, timeout=20)
 
-            scraper = cloudscraper.create_scraper(
-                browser={"browser": "chrome", "platform": "windows", "desktop": True}
-            )
-            res = scraper.get(url, timeout=15)
-            soup = BeautifulSoup(res.text, "html.parser")
-            paragraphs = soup.find_all("p")
-            full_text = " ".join([p.get_text() for p in paragraphs])
-
-            if len(full_text) < 200:
-                return None
-
-            return full_text[:5000]
-
+            if res.status_code == 200:
+                full_text = res.text
+                if (
+                    "verify you are human" in full_text.lower()
+                    or "captcha" in full_text.lower()
+                ):
+                    print("      ⚠️ Reader API was blocked by a CAPTCHA.")
+                    return None
+                if len(full_text) > 300:
+                    return full_text[:5000]
+            return None
         except Exception as e:
             print(f"      ❌ Failed to read full article: {e}")
             return None
@@ -395,14 +394,30 @@ class NewsScraper:
         }
 
     def save_approved_topic(self, chosen_topic, niche, niche_data, slot):
-        """
-        Called by main.py after user picks a topic.
-        Deep-reads article, saves to DB, returns the saved task dict.
-        """
         full_content = self.extract_full_article(chosen_topic["link"])
         if not full_content:
             print("      ⚠️ Deep Read failed, falling back to RSS summary.")
-            full_content = chosen_topic.get("summary", "")[:5000]
+            raw_summary = chosen_topic.get("summary", "")[:5000]
+            clean_summary = re.sub(r"<[^>]+>", " ", raw_summary)
+
+            # Strip common RSS garbage that pollutes the AI's logic
+            garbage_phrases = [
+                "See All",
+                "email digest",
+                "homepage feed",
+                "native ad",
+                "All Rights Reserved",
+                "Posts from this topic",
+                "Posts from this author",
+                "A free daily digest of the news",
+                "This is the title for the native ad",
+            ]
+            for phrase in garbage_phrases:
+                clean_summary = re.compile(re.escape(phrase), re.IGNORECASE).sub(
+                    "", clean_summary
+                )
+
+            full_content = clean_summary.strip()
 
         self.db.add_task(
             title=chosen_topic["title"],
@@ -419,7 +434,6 @@ class NewsScraper:
                 "target_language": "English",
             },
         )
-        # Return the saved task so brain.py can use it directly without a DB re-fetch
         return self.db.collection.find_one(
             {"title": chosen_topic["title"], "status": "pending"}
         )

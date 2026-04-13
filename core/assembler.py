@@ -1061,6 +1061,46 @@ class VideoAssembler:
         gc.collect()
 
     # ─────────────────────────────────────────────
+    # CLEAN VIDEO CLIPS AND VOICE CLIPS
+    # ─────────────────────────────────────────────
+    def _cleanup_intermediate_files(
+        self, folder_path, final_video_name="FINAL_VIDEO.mp4"
+    ):
+        """
+        Deletes all downloaded raw visuals, audio segments, and temp renders.
+        Keeps only the final video and metadata files.
+        """
+        print("      🧹 Cleaning up intermediate clips and audio files...")
+        import time
+
+        # Short pause to let Windows release any lingering MoviePy file locks
+        time.sleep(2)
+
+        deleted_files = 0
+
+        for filename in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, filename)
+
+            if os.path.isfile(file_path):
+                # Check if it is the final video OR a metadata file
+                if filename == final_video_name or filename.startswith(
+                    "FINAL_VIDEO_METADATA"
+                ):
+                    continue
+                else:
+                    try:
+                        os.remove(file_path)
+                        deleted_files += 1
+                    except Exception as e:
+                        print(
+                            f"         ⚠️ Could not delete {filename} (might be locked by OS): {e}"
+                        )
+
+        print(
+            f"      ✅ Cleanup complete. Deleted {deleted_files} raw files to save disk space."
+        )
+
+    # ─────────────────────────────────────────────
     # MAIN ENTRY POINT
     # ─────────────────────────────────────────────
 
@@ -1122,4 +1162,6 @@ class VideoAssembler:
             {"$set": {"status": "ready_to_upload", "final_video_path": out_path}},
         )
         print(f"🎉 Synchronized Video Ready: {out_path}")
+        # 🟢 NEW: Trigger the cleanup of the raw downloaded files!
+        self._cleanup_intermediate_files(folder)
         print("🧹 Cleaned up all temporary files.")

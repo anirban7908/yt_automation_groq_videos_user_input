@@ -15,6 +15,12 @@ import concurrent.futures
 import threading
 
 load_dotenv()
+# Safely fetch the max size from .env, fallback to 250 if missing or invalid
+try:
+    MAX_SIZE_MB = float(os.getenv("MAX_DOWNLOAD_SIZE_MB", 250))
+except ValueError:
+    print("⚠️ MAX_DOWNLOAD_SIZE_MB is invalid in .env. Defaulting to 250MB.")
+    MAX_SIZE_MB = 250.0
 
 
 def _convert_to_mp4(input_path, delete_original=True):
@@ -347,6 +353,16 @@ class VisualScout:
     # ─────────────────────────────────────────────
     # VIDEO SOURCES
     # ─────────────────────────────────────────────
+    def _get_file_size_mb(self, url):
+        """Pings the server to get the exact file size before downloading."""
+        try:
+            # stream=True reads only the headers, not the whole file
+            res = requests.get(url, stream=True, timeout=5)
+            size_bytes = int(res.headers.get("Content-Length", 0))
+            res.close()
+            return size_bytes / (1024 * 1024)
+        except Exception:
+            return 0
 
     def use_nasa_search(self, query, path):
         """
@@ -414,7 +430,42 @@ class VisualScout:
             jpg_links = [l for l in links if l.endswith(".jpg") or l.endswith(".jpeg")]
 
             if mp4_links:
-                content = requests.get(mp4_links[0], timeout=60).content
+                print(
+                    f"      📏 Checking file sizes to maximize quality (Limit: 250MB)..."
+                )
+
+                # Order by highest quality to lowest
+                priority_order = ["~orig", "~large", "~medium", "~small", "~mobile"]
+                sorted_links = []
+                for p in priority_order:
+                    for l in mp4_links:
+                        if p in l and l not in sorted_links:
+                            sorted_links.append(l)
+
+                # Append any others not caught by the priority list
+                for l in mp4_links:
+                    if l not in sorted_links:
+                        sorted_links.append(l)
+
+                best_link = None
+                for link in sorted_links:
+                    size_mb = self._get_file_size_mb(link)
+                    if 0 < size_mb <= MAX_SIZE_MB:
+                        best_link = link
+                        print(
+                            f"         ✅ Found optimal high-quality file: {size_mb:.1f} MB"
+                        )
+                        break
+
+                # If everything is somehow over the limit, fall back to the smallest available
+                if not best_link:
+                    best_link = sorted_links[-1]
+                    print(
+                        f"         ⚠️ All files over {MAX_SIZE_MB}MB limit. Falling back to smallest available."
+                    )
+
+                print(f"      ⬇️ Downloading NASA video...")
+                content = requests.get(best_link, timeout=120).content
                 save_path = path.replace(".jpg", ".mp4")
                 with open(save_path, "wb") as f:
                     f.write(content)
@@ -492,12 +543,37 @@ class VisualScout:
                 ]
 
                 if mp4_files:
+                    print(
+                        f"      📏 Checking Pexels file sizes to maximize quality (Limit: 250MB)..."
+                    )
+
+                    # Sort files by highest resolution first
                     mp4_files = sorted(
                         mp4_files,
                         key=lambda x: x.get("width", 0) * x.get("height", 0),
                         reverse=True,
                     )
-                    content = requests.get(mp4_files[0]["link"], timeout=60).content
+
+                    best_file = None
+                    for file in mp4_files:
+                        size_mb = self._get_file_size_mb(file["link"])
+                        if 0 < size_mb <= MAX_SIZE_MB:
+                            best_file = file
+                            resolution = f"{file.get('width')}x{file.get('height')}"
+                            print(
+                                f"         ✅ Found optimal high-quality file ({resolution}): {size_mb:.1f} MB"
+                            )
+                            break
+
+                    # Fallback to lowest resolution if all are massively huge
+                    if not best_file:
+                        best_file = mp4_files[-1]
+                        print(
+                            f"         ⚠️ All files over {MAX_SIZE_MB}MB limit. Falling back to smallest available."
+                        )
+
+                    print(f"      ⬇️ Downloading Pexels video...")
+                    content = requests.get(best_file["link"], timeout=120).content
                     with open(path, "wb") as f:
                         f.write(content)
                     self._used_pexels_ids.add(chosen_video["id"])
